@@ -41,15 +41,27 @@ public class MainMenuPane extends StackPane {
         subtitle.getStyleClass().add("subtitle");
 
         // 4. Tarjetas de Modo de Juego
-        Button pvpButton = new Button("JUGADOR VS JUGADOR");
-        pvpButton.getStyleClass().add("card-button-pvp");
-        pvpButton.setPrefSize(280, 180);
+        Image pvpImage = new Image(getClass().getResourceAsStream("/resources/Images/pvp_banner.png"));
+        ImageView pvpGraphic = new ImageView(pvpImage);
+        pvpGraphic.setFitWidth(240);
+        pvpGraphic.setFitHeight(160);
+        pvpGraphic.setPreserveRatio(true);
+
+        Button pvpButton = new Button();
+        pvpButton.setGraphic(pvpGraphic); // Inserta la ilustración dentro del botón
+        pvpButton.getStyleClass().add("image-card-button");
         pvpButton.setOnAction(e -> handleSelectMode(GameMode.PvP));
 
-        Button pvAiButton = new Button("JUGADOR VS MÁQUINA\n\n🔒 (EN CONSTRUCCIÓN)");
-        pvAiButton.getStyleClass().add("card-button-disabled");
-        pvAiButton.setPrefSize(280, 180);
-        pvAiButton.setDisable(true); // Deshabilitado temporalmente
+        Image pvAiImage = new Image(getClass().getResourceAsStream("/resources/images/pvai_banner.png"));
+        ImageView pvAiGraphic = new ImageView(pvAiImage);
+        pvAiGraphic.setFitWidth(240);
+        pvAiGraphic.setFitHeight(160);
+        pvAiGraphic.setPreserveRatio(true);
+
+        Button pvAiButton = new Button();
+        pvAiButton.setGraphic(pvAiGraphic);
+        pvAiButton.getStyleClass().add("image-card-button-disabled");
+        pvAiButton.setDisable(true); // Deshabilitado
 
         HBox modeContainer = new HBox(30, pvpButton, pvAiButton);
         modeContainer.setAlignment(Pos.CENTER);

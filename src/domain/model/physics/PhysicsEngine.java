@@ -18,10 +18,8 @@ public final class PhysicsEngine {
 
         first.tick(delta);
         second.tick(delta);
-        updatePlayer(first, firstInput, delta, !match.kickoffDelayActive(), 30,
-                Game.WIDTH / 2 - Player.RADIUS);
-        updatePlayer(second, secondInput, delta, !match.kickoffDelayActive(),
-                Game.WIDTH / 2 + Player.RADIUS, Game.WIDTH - 30);
+        updatePlayer(first, firstInput, delta, !match.kickoffDelayActive());
+        updatePlayer(second, secondInput, delta, !match.kickoffDelayActive());
         resolvePlayerCollision(first, second);
 
         updateBall(ball, delta);
@@ -30,12 +28,12 @@ public final class PhysicsEngine {
         scoreIfGoal(match);
     }
 
-    private void updatePlayer(Player player, PlayerInput input, double delta, boolean canControl,
-                              double minimumX, double maximumX) {
+    private void updatePlayer(Player player, PlayerInput input, double delta, boolean canControl) {
         double direction = canControl ? input.horizontalDirection() : 0;
         double speed = 190 + (player.stats().speed() - 5) * 18;
         player.setVelocity(direction * speed, player.velocityY());
-        double x = clamp(player.x() + player.velocityX() * delta, minimumX, maximumX);
+        double x = clamp(player.x() + player.velocityX() * delta,
+                Player.RADIUS, Game.WIDTH - Player.RADIUS);
 
         double velocityY = player.velocityY();
         if (canControl && input.jump() && player.grounded()) {
@@ -64,8 +62,13 @@ public final class PhysicsEngine {
         double distance = Math.abs(first.x() - second.x());
         if (distance < minimumDistance) {
             double overlap = (minimumDistance - distance) / 2;
-            first.setPosition(first.x() - overlap, first.y());
-            second.setPosition(second.x() + overlap, second.y());
+            double direction = first.x() <= second.x() ? -1 : 1;
+            double firstX = clamp(first.x() + direction * overlap,
+                    Player.RADIUS, Game.WIDTH - Player.RADIUS);
+            double secondX = clamp(second.x() - direction * overlap,
+                    Player.RADIUS, Game.WIDTH - Player.RADIUS);
+            first.setPosition(firstX, first.y());
+            second.setPosition(secondX, second.y());
         }
     }
 
