@@ -38,10 +38,10 @@ import java.util.Set;
  */
 public final class GamePlayPane extends BorderPane {
 
-    /** Ancho de la cancha lógica, tomado de {@link Game#WIDTH}. */
+    /** Ancho de la cancha lógica, tomado de Game#WIDTH. */
     private static final double GAME_WIDTH = Game.WIDTH;
 
-    /** Alto de la cancha lógica, tomado de {@link Game#HEIGHT}. */
+    /** Alto de la cancha lógica, tomado de Game#HEIGHT. */
     private static final double GAME_HEIGHT = Game.HEIGHT;
 
     /** Teclas que están presionadas en este momento. */

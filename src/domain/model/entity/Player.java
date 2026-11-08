@@ -29,10 +29,10 @@ public final class Player {
     /** Vida actual del jugador. */
     private double health;
 
-    /** Carga actual de la barra de poder, entre 0 y {@link #MAX_POWER_CHARGE}. */
+    /** Carga actual de la barra de poder, entre 0 y #MAX_POWER_CHARGE. */
     private double powerCharge;
 
-    /** Poder activo en este momento; {@code Power.NONE} si no tiene ninguno. */
+    /** Poder activo en este momento, Power.NONE si no tiene ninguno. */
     private Power power = Power.NONE;
 
     /** Posición horizontal del jugador. */
@@ -107,7 +107,7 @@ public final class Player {
 
     /**
      * Calcula la vida máxima según la estadística de supervivencia,
-     * con la fórmula {@code 100 + (survival - 5) * 10}.
+     * con la fórmula 100 + (survival - 5) * 10.
      *
      * @return puntos de vida máximos
      */
@@ -118,7 +118,7 @@ public final class Player {
     /**
      * Devuelve la carga actual de la barra de poder.
      *
-     * @return valor entre 0 y {@link #MAX_POWER_CHARGE}
+     * @return valor entre 0 y MAX_POWER_CHARGE
      */
     public double powerCharge() {
         return powerCharge;
@@ -127,7 +127,7 @@ public final class Player {
     /**
      * Devuelve el poder activo del jugador.
      *
-     * @return el poder activo, o {@code Power.NONE} si no tiene ninguno
+     * @return el poder activo, o Power.NONE si no tiene ninguno
      */
     public Power power() {
         return power;
@@ -235,7 +235,7 @@ public final class Player {
     /**
      * Indica si el jugador está apoyado en el suelo.
      *
-     * @param grounded {@code true} si está en el suelo
+     * @param grounded true si está en el suelo
      */
     public void setGrounded(boolean grounded) {
         this.grounded = grounded;
@@ -253,9 +253,9 @@ public final class Player {
     /**
      * Actualiza el estado del jugador al pasar el tiempo.
      *
-     * <p>Reduce el tiempo de espera de la patada, recarga la barra de
+     * Reduce el tiempo de espera de la patada, recarga la barra de
      * poder (5 unidades por segundo, sin pasar del máximo) y descuenta
-     * tiempo al poder activo; cuando este llega a cero, el poder se apaga.</p>
+     * tiempo al poder activo; cuando este llega a cero, el poder se apaga.
      *
      * @param seconds segundos transcurridos desde la actualización anterior
      */
@@ -273,11 +273,11 @@ public final class Player {
     /**
      * Intenta activar el poder del jugador.
      *
-     * <p>Solo se activa si no tiene ya un poder activo y la barra está
+     * Solo se activa si no tiene ya un poder activo y la barra está
      * llena. Al activarse, la barra se vacía y el poder queda activo
-     * durante 5 segundos.</p>
+     * durante 5 segundos.
      *
-     * @return {@code true} si el poder se activó; {@code false} si no
+     * @return true si el poder se activó, false si no
      *         se cumplían las condiciones
      */
     public boolean activatePower() {
