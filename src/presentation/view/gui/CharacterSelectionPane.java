@@ -13,14 +13,47 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
+/**
+ * Pantalla donde cada jugador elige su personaje (país) antes del partido.
+ *
+ * Es un VBox: acomoda sus elementos en una columna. Muestra la
+ * modalidad elegida, una lista desplegable por jugador y los botones para
+ * comenzar el partido o volver al menú principal.
+ *
+ * Cada vez que el usuario cambia una lista desplegable, la elección se
+ * guarda de inmediato en la GameMatchConfig. Al pulsar "Comenzar
+ * Partido" se crea el Game con esa configuración y se muestra la
+ * pantalla de juego.
+ */
 public class CharacterSelectionPane extends VBox {
+
+    /** Configuración del partido que esta pantalla lee y actualiza. */
     private final GameMatchConfig matchConfig;
 
+    /**
+     * Crea la pantalla de selección y arma su contenido.
+     *
+     * @param matchConfig configuración compartida; debe tener ya la
+     *        modalidad elegida
+     */
     public CharacterSelectionPane(GameMatchConfig matchConfig) {
         this.matchConfig = matchConfig;
         setupUI();
     }
 
+    /**
+     * Construye y acomoda los elementos visuales de la pantalla.
+     *
+     * Crea el título, la etiqueta de modalidad y, para cada jugador, una
+     * etiqueta y una lista desplegable con todos los países Country.
+     * Cada lista arranca con el personaje que ya tiene la configuración y,
+     * al cambiar, lo actualiza. El botón "Volver al Menú Principal" regresa
+     * al menú. El botón "¡Comenzar Partido!" (botón por defecto, se activa
+     * con Enter) traduce el GameMode elegido a un PlayerMode
+     * (PvP pasa a jugador contra jugador; cualquier otro valor, a jugador
+     * contra máquina), crea el Game con los dos personajes y carga
+     * la pantalla de juego.
+     */
     private void setupUI() {
         this.setAlignment(Pos.CENTER);
         this.setSpacing(18);
@@ -50,7 +83,7 @@ public class CharacterSelectionPane extends VBox {
         startMatchButton.setDefaultButton(true);
         startMatchButton.setOnAction(e -> {
             Game match = new Game(matchConfig.getGameMode() == GameMode.PvP
-                            ? PlayerMode.PLAYER_VS_PLAYER : PlayerMode.PLAYER_VS_MACHINE,
+                    ? PlayerMode.PLAYER_VS_PLAYER : PlayerMode.PLAYER_VS_MACHINE,
                     matchConfig.getPlayer1Character(), matchConfig.getPlayer2Character());
             ViewNavigator.loadView(new GamePlayPane(match, matchConfig));
         });
@@ -59,6 +92,13 @@ public class CharacterSelectionPane extends VBox {
                 secondPlayerLabel, secondPlayer, startMatchButton, backButton);
     }
 
+    /**
+     * Devuelve el texto que describe la modalidad elegida.
+     *
+     * @param config configuración de la que se lee la modalidad
+     * @return "Jugador vs máquina" si la modalidad es PvIA, en
+     * cualquier otro caso, "Jugador vs jugador"
+     */
     private String modeLabel(GameMatchConfig config) {
         return config.getGameMode() == GameMode.PvIA
                 ? "Jugador vs máquina" : "Jugador vs jugador";

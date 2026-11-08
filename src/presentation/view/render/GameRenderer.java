@@ -8,7 +8,26 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
+/**
+ * Dibuja un partido sobre un lienzo de JavaFX.
+ *
+ * Solo lee el estado del Game (posiciones, goles, vida, barra de
+ * poder) y lo pinta; no modifica nada del partido. Todas las coordenadas son
+ * las de la cancha lógica (Game#WIDTH por Game#HEIGHT): esta
+ * clase no escala nada, de eso se encarga quien le entrega el
+ * GraphicsContext.
+ *
+ * Orden de dibujo (lo último queda encima): cancha, arcos, jugadores,
+ * balón y marcador.
+ */
 public final class GameRenderer {
+
+    /**
+     * Dibuja el partido completo en un cuadro.
+     *
+     * @param graphics contexto gráfico del lienzo donde se dibuja
+     * @param match partido cuyo estado se va a dibujar
+     */
     public void render(GraphicsContext graphics, Game match) {
         drawField(graphics);
         drawGoal(graphics, 0, true);
@@ -19,6 +38,13 @@ public final class GameRenderer {
         drawScoreboard(graphics, match);
     }
 
+    /**
+     * Dibuja el fondo de la cancha: cielo, césped en dos tonos, la línea
+     * del suelo, la línea y el círculo del centro y una mancha clara
+     * translúcida encima del césped.
+     *
+     * @param graphics contexto gráfico del lienzo
+     */
     private void drawField(GraphicsContext graphics) {
         graphics.setFill(Color.web("#88c9ee"));
         graphics.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
@@ -35,6 +61,16 @@ public final class GameRenderer {
         graphics.fillOval(Game.WIDTH / 2 - 190, Game.GROUND_Y - 215, 380, 160);
     }
 
+    /**
+     * Dibuja un arco: el poste y el larguero en blanco y una red formada por
+     * líneas verticales y horizontales delgadas y translúcidas.
+     *
+     * @param graphics contexto gráfico del lienzo
+     * @param x coordenada x del borde izquierdo del arco
+     * @param leftGoal true si es el arco izquierdo (su poste queda a
+     *        la derecha del arco, del lado de la cancha) false si
+     *        es el derecho (su poste queda en x)
+     */
     private void drawGoal(GraphicsContext graphics, double x, boolean leftGoal) {
         graphics.setStroke(Color.WHITE);
         graphics.setLineWidth(9);
@@ -53,6 +89,15 @@ public final class GameRenderer {
         }
     }
 
+    /**
+     * Dibuja a un jugador: un círculo amarillo translúcido de aura si tiene
+     * un poder activo, la sombra en el suelo, la camiseta con el color de su
+     * país, la cabeza, el ojo (que mira hacia el centro de la cancha) y las
+     * piernas.
+     *
+     * @param graphics contexto gráfico del lienzo
+     * @param player jugador que se dibuja
+     */
     private void drawPlayer(GraphicsContext graphics, Player player) {
         double x = player.x();
         double y = player.y();
@@ -75,6 +120,13 @@ public final class GameRenderer {
         graphics.strokeLine(x + 13, y + 20, x + 16, y + 29);
     }
 
+    /**
+     * Dibuja el balón: su sombra en el suelo, un círculo blanco y un punto
+     * oscuro en el centro.
+     *
+     * @param graphics contexto gráfico del lienzo
+     * @param ball balón que se dibuja
+     */
     private void drawBall(GraphicsContext graphics, Ball ball) {
         graphics.setFill(Color.rgb(25, 38, 48, 0.2));
         graphics.fillOval(ball.x() - Ball.RADIUS, Game.GROUND_Y - 3, Ball.RADIUS * 2, 7);
@@ -85,6 +137,14 @@ public final class GameRenderer {
         graphics.fillOval(ball.x() - 5, ball.y() - 5, 10, 10);
     }
 
+    /**
+     * Dibuja el marcador central (nombres de los países, goles y el texto
+     * fijo "PARTIDO LIBRE") y las barras de vida y poder de cada jugador,
+     * a la izquierda y a la derecha de la pantalla.
+     *
+     * @param graphics contexto gráfico del lienzo
+     * @param match partido del que se toman los nombres y los goles
+     */
     private void drawScoreboard(GraphicsContext graphics, Game match) {
         graphics.setFill(Color.rgb(20, 32, 43, 0.78));
         graphics.fillRoundRect(330, 16, 300, 82, 16, 16);
@@ -100,6 +160,18 @@ public final class GameRenderer {
         drawPlayerBars(graphics, match.secondPlayer(), Game.WIDTH - 258, 26, 230);
     }
 
+    /**
+     * Dibuja las dos barras de un jugador dentro de un panel oscuro: la de
+     * vida (roja, arriba) y la de poder (amarilla, abajo). El largo de la
+     * parte llena es proporcional a vida actual / vida máxima y a carga del
+     * poder / carga máxima.
+     *
+     * @param graphics contexto gráfico del lienzo
+     * @param player jugador cuyas barras se dibujan
+     * @param x coordenada x de la esquina izquierda de las barras
+     * @param y coordenada y de la barra de vida
+     * @param width ancho total de cada barra (cuando está llena)
+     */
     private void drawPlayerBars(GraphicsContext graphics, Player player, double x, double y, double width) {
         graphics.setFill(Color.rgb(20, 32, 43, 0.68));
         graphics.fillRoundRect(x - 8, y - 8, width + 16, 58, 10, 10);

@@ -12,14 +12,44 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 
+/**
+ * Pantalla del menú principal, donde se elige la modalidad de juego.
+ *
+ * Es un StackPane: apila capas una sobre otra. La capa de abajo
+ * es la imagen de fondo y la de arriba es el contenido (título, tarjetas
+ * de modalidad y botones de navegación).
+ *
+ * Por ahora solo está habilitada la tarjeta "Jugador vs Jugador"; la de
+ * jugador contra máquina aparece deshabilitada. Al elegir una modalidad se
+ * guarda en la configuración del partido y se pasa a la selección de
+ * personajes.
+ */
 public class MainMenuPane extends StackPane {
+
+    /** Configuración del partido que se va llenando a lo largo de las pantallas. */
     private final GameMatchConfig matchConfig;
 
+    /**
+     * Crea el menú principal y arma su contenido.
+     *
+     * @param matchConfig configuración compartida donde se guardará la
+     *        modalidad elegida
+     */
     public MainMenuPane(GameMatchConfig matchConfig) {
         this.matchConfig = matchConfig;
         setupUI();
     }
 
+    /**
+     * Construye y acomoda todos los elementos visuales del menú.
+     *
+     * Pasos: carga la hoja de estilos CSS, coloca la imagen de fondo
+     * (ajustada al tamaño de la ventana), crea el título y el subtítulo,
+     * crea las dos tarjetas de modalidad (la de máquina deshabilitada), crea
+     * los botones "OPCIONES" y "SALIR" y los ordena verticalmente sobre el
+     * fondo. El botón "OPCIONES" todavía no tiene acción; "SALIR" cierra
+     * el programa.
+     */
     private void setupUI() {
         // 1. Cargar hoja de estilos CSS
         String cssPath = getClass().getResource("/resources/css/styles.css").toExternalForm();
@@ -85,6 +115,12 @@ public class MainMenuPane extends StackPane {
         this.getChildren().addAll(bgView, contentBox);
     }
 
+    /**
+     * Guarda la modalidad elegida en la configuración y pasa a la pantalla
+     * de selección de personajes.
+     *
+     * @param mode modalidad que eligió el usuario
+     */
     private void handleSelectMode(GameMode mode) {
         matchConfig.setGameMode(mode);
         ViewNavigator.loadView(new CharacterSelectionPane(matchConfig));
