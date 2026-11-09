@@ -5,7 +5,7 @@ package domain.model.game;
  *
  * Indica si el rival es otra persona o es la máquina. No define el
  * tipo de partido (por tiempo o por goles) ni el perfil de la máquina.
- **/
+ */
 public enum PlayerMode {
 
     /** Jugador contra jugador: dos personas en el mismo teclado. */

@@ -1,26 +1,24 @@
 package domain.model.entity;
 
 /**
- * Países disponibles como personaje en el juego.
+ * Países disponibles como personaje en el juego: los cuatro del Anexo 1
+ * del enunciado (Corea del Sur, Camerún, Nigeria y Estados Unidos).
  * Cada país tiene un nombre para mostrar en pantalla y un color
- * asociado, escrito en formato hexadecimal (por ejemplo, "#138A45").
+ * asociado, escrito en formato hexadecimal (por ejemplo, "#008751").
  */
 public enum Country {
 
-    /** México. */
-    MEXICO("México", "#138A45"),
+    /** Corea del Sur. */
+    SOUTH_KOREA("Corea del Sur", "#CD2E3A"),
 
-    /** Argentina. */
-    ARGENTINA("Argentina", "#72C7E8"),
+    /** Camerún. */
+    CAMEROON("Camerún", "#F2B705"),
 
-    /** Brasil. */
-    BRAZIL("Brasil", "#E8C547"),
+    /** Nigeria. */
+    NIGERIA("Nigeria", "#008751"),
 
-    /** Francia. */
-    FRANCE("Francia", "#3155A4"),
-
-    /** España. */
-    SPAIN("España", "#C83D3D");
+    /** Estados Unidos. */
+    USA("Estados Unidos", "#3C3B6E");
 
     /** Nombre del país tal como se muestra al usuario. */
     private final String displayName;
@@ -60,8 +58,8 @@ public enum Country {
 
     /**
      * Representa el país como texto usando su nombre visible,
-     * en lugar del nombre de la constante (por ejemplo, "México"
-     * en vez de "MEXICO").
+     * en lugar del nombre de la constante (por ejemplo, "Corea del Sur"
+     * en vez de "SOUTH_KOREA").
      *
      * @return el nombre visible del país
      */

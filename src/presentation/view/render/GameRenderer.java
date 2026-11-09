@@ -15,7 +15,7 @@ import javafx.scene.text.FontWeight;
  * poder) y lo pinta; no modifica nada del partido. Todas las coordenadas son
  * las de la cancha lógica (Game#WIDTH por Game#HEIGHT): esta
  * clase no escala nada, de eso se encarga quien le entrega el
- * GraphicsContext.
+ * GraphicsContext (ver GamePlayPane).
  *
  * Orden de dibujo (lo último queda encima): cancha, arcos, jugadores,
  * balón y marcador.
@@ -67,8 +67,8 @@ public final class GameRenderer {
      *
      * @param graphics contexto gráfico del lienzo
      * @param x coordenada x del borde izquierdo del arco
-     * @param leftGoal true si es el arco izquierdo (su poste queda a
-     *        la derecha del arco, del lado de la cancha) false si
+     * @param leftGoal TRUE si es el arco izquierdo (su poste queda a
+     *        la derecha del arco, del lado de la cancha), false si
      *        es el derecho (su poste queda en x)
      */
     private void drawGoal(GraphicsContext graphics, double x, boolean leftGoal) {
@@ -147,7 +147,7 @@ public final class GameRenderer {
      */
     private void drawScoreboard(GraphicsContext graphics, Game match) {
         graphics.setFill(Color.rgb(20, 32, 43, 0.78));
-        graphics.fillRoundRect(330, 16, 300, 82, 16, 16);
+        graphics.fillRoundRect(330, 16, 300, 118, 16, 16);
         graphics.setFont(Font.font("System", FontWeight.BOLD, 22));
         graphics.setFill(Color.WHITE);
         graphics.fillText(match.firstPlayer().country().displayName(), 348, 43);

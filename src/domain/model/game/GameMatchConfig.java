@@ -15,11 +15,11 @@ public class GameMatchConfig {
     /** Modo de juego elegido; es null hasta que se elija uno. */
     private GameMode gameMode;
 
-    /** Personaje del jugador 1. Por defecto, México. */
-    private Country player1Character = Country.MEXICO;
+    /** Personaje del jugador 1. Por defecto, Corea del Sur. */
+    private Country player1Character = Country.SOUTH_KOREA;
 
-    /** Personaje del jugador 2. Por defecto, Argentina. */
-    private Country player2Character = Country.ARGENTINA;
+    /** Personaje del jugador 2. Por defecto, Camerún. */
+    private Country player2Character = Country.CAMEROON;
 
     /**
      * Devuelve el modo de juego elegido.

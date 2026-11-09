@@ -26,6 +26,9 @@ import javafx.scene.text.Text;
  */
 public class MainMenuPane extends StackPane {
 
+    /** Carpeta donde están las imágenes del menú. Si cambia, se cambia solo aquí. */
+    private static final String IMAGES_PATH = "/resources/Images/";
+
     /** Configuración del partido que se va llenando a lo largo de las pantallas. */
     private final GameMatchConfig matchConfig;
 
@@ -57,7 +60,7 @@ public class MainMenuPane extends StackPane {
         this.getStyleClass().add("root-pane");
 
         // 2. Fondo de pantalla (ImageView escalable)
-        Image bgImage = new Image(getClass().getResourceAsStream("/resources/Images/background.png"));
+        Image bgImage = new Image(getClass().getResourceAsStream(IMAGES_PATH + "background.png"));
         ImageView bgView = new ImageView(bgImage);
         bgView.setPreserveRatio(false);
         bgView.fitWidthProperty().bind(this.widthProperty());
@@ -71,7 +74,7 @@ public class MainMenuPane extends StackPane {
         subtitle.getStyleClass().add("subtitle");
 
         // 4. Tarjetas de Modo de Juego
-        Image pvpImage = new Image(getClass().getResourceAsStream("/resources/Images/pvp_banner.png"));
+        Image pvpImage = new Image(getClass().getResourceAsStream(IMAGES_PATH + "pvp_banner.png"));
         ImageView pvpGraphic = new ImageView(pvpImage);
         pvpGraphic.setFitWidth(240);
         pvpGraphic.setFitHeight(160);
@@ -79,10 +82,10 @@ public class MainMenuPane extends StackPane {
 
         Button pvpButton = new Button();
         pvpButton.setGraphic(pvpGraphic); // Inserta la ilustración dentro del botón
-        pvpButton.getStyleClass().add("image-card-button");
+        pvpButton.getStyleClass().add("card-button-pvp");
         pvpButton.setOnAction(e -> handleSelectMode(GameMode.PvP));
 
-        Image pvAiImage = new Image(getClass().getResourceAsStream("/resources/images/pvai_banner.png"));
+        Image pvAiImage = new Image(getClass().getResourceAsStream(IMAGES_PATH + "pvai_banner.png"));
         ImageView pvAiGraphic = new ImageView(pvAiImage);
         pvAiGraphic.setFitWidth(240);
         pvAiGraphic.setFitHeight(160);
@@ -90,7 +93,7 @@ public class MainMenuPane extends StackPane {
 
         Button pvAiButton = new Button();
         pvAiButton.setGraphic(pvAiGraphic);
-        pvAiButton.getStyleClass().add("image-card-button-disabled");
+        pvAiButton.getStyleClass().add("card-button-disabled");
         pvAiButton.setDisable(true); // Deshabilitado
 
         HBox modeContainer = new HBox(30, pvpButton, pvAiButton);
