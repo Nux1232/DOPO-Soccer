@@ -5,11 +5,14 @@ import domain.model.physics.PhysicsEngine;
 import presentation.controller.input.PlayerInput;
 
 public final class GameEngine {
-    private final PhysicsEngine physicsEngine = new PhysicsEngine();
+    private final PhysicsEngine physicsEngine;
     private final Game match;
+    private boolean firstKickWasPressed;
+    private boolean secondKickWasPressed;
 
     public GameEngine(Game match) {
         this.match = match;
+        physicsEngine = new PhysicsEngine(match);
     }
 
     public Game match() {
@@ -17,15 +20,20 @@ public final class GameEngine {
     }
 
     public void update(PlayerInput firstInput, PlayerInput secondInput, double deltaSeconds) {
-        physicsEngine.update(match, firstInput, secondInput, deltaSeconds);
-        double delta = Math.min(deltaSeconds, 1.0 / 30.0);
+        boolean firstKickPressed = firstInput.kick() && !firstKickWasPressed;
+        boolean secondKickPressed = secondInput.kick() && !secondKickWasPressed;
+        firstKickWasPressed = firstInput.kick();
+        secondKickWasPressed = secondInput.kick();
+
+        double delta = physicsEngine.update(firstInput, secondInput, deltaSeconds,
+                !match.kickoffDelayActive());
         match.updateKickoffDelay(delta);
         if (!match.kickoffDelayActive()) {
-            if (firstInput.kick()) {
-                physicsEngine.kick(match.firstPlayer(), match.ball(), 1);
+            if (firstKickPressed) {
+                physicsEngine.kick(match.firstPlayer(), 1);
             }
-            if (secondInput.kick()) {
-                physicsEngine.kick(match.secondPlayer(), match.ball(), -1);
+            if (secondKickPressed) {
+                physicsEngine.kick(match.secondPlayer(), -1);
             }
         }
     }
