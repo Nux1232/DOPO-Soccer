@@ -1,5 +1,6 @@
 package presentation.view.gui;
 
+import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
 import domain.model.game.GameMatchConfig;
 import domain.model.game.PlayerInput;
@@ -17,7 +18,7 @@ import javafx.scene.paint.Color;
 import presentation.controller.engine.GameEngine;
 import presentation.view.render.GameRenderer;
 import presentation.view.util.ViewNavigator;
-
+import javafx.scene.control.Alert;
 import java.util.EnumSet;
 import java.util.Set;
 
@@ -85,7 +86,19 @@ public final class GamePlayPane extends BorderPane {
             public void handle(long now) {
                 double delta = previousFrame == 0 ? 0 : (now - previousFrame) / 1_000_000_000.0;
                 previousFrame = now;
-                engine.update(firstPlayerInput(), secondPlayerInput(), delta);
+                try {
+                    engine.update(firstPlayerInput(), secondPlayerInput(), delta);
+                } catch (DopoSoccerException e) {
+                    stop();
+
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Error del juego");
+                    alert.setHeaderText("No se pudo actualizar el partido");
+                    alert.setContentText(e.getMessage());
+                    alert.show();
+
+                    return;
+                }
                 render();
             }
         };

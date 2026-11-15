@@ -1,141 +1,105 @@
 package domain.model.entity;
 
+import domain.model.exception.DopoSoccerException;
+
 /**
  * Estadísticas de un jugador: velocidad, patada, salto y supervivencia,
  * junto con los puntos acumulados que se gastan para mejorarlas.
  *
- * Cada estadística tiene un valor entre 1 y 10. Mejorar una estadística
- * sube su valor en 1 y gasta 1 punto.
+ * Según el enunciado, todas empiezan en 1 y suben hasta 10.
+ * El precio del primer punto de mejora es 500 y se duplica con cada mejora
+ * (500, 1000, 2000, ...).
  */
 public final class PlayerStats {
 
-    /** Nivel de velocidad de desplazamiento. */
-    private int speed = 5;
+    public static final int INITIAL_LEVEL = 1;
+    public static final int MAX_LEVEL = 10;
+    public static final int INITIAL_UPGRADE_COST = 500;
 
-    /** Nivel de patada. */
-    private int kick = 5;
+    /** Nivel de velocidad de desplazamiento (1 a 10). */
+    private int speed = INITIAL_LEVEL;
 
-    /** Nivel de salto. */
-    private int jump = 5;
+    /** Nivel de patada (1 a 10). */
+    private int kick = INITIAL_LEVEL;
 
-    /** Nivel de supervivencia (vida máxima). */
-    private int survival = 5;
+    /** Nivel de salto (1 a 10). */
+    private int jump = INITIAL_LEVEL;
 
-    /** Puntos acumulados disponibles para mejorar estadísticas. */
+    /** Nivel de supervivencia / vida máxima (1 a 10). */
+    private int survival = INITIAL_LEVEL;
+
+    /** Puntos acumulados disponibles para comprar mejoras. */
     private int points;
 
-    /**
-     * Devuelve el nivel de velocidad.
-     *
-     * @return el nivel de velocidad actual
-     */
+    /** Costo en puntos de la próxima mejora (empieza en 500 y se duplica). */
+    private int nextUpgradeCost = INITIAL_UPGRADE_COST;
+
     public int speed() {
         return speed;
     }
 
-    /**
-     * Devuelve el nivel de patada.
-     *
-     * @return el nivel de patada actual
-     */
     public int kick() {
         return kick;
     }
 
-    /**
-     * Devuelve el nivel de salto.
-     *
-     * @return el nivel de salto actual
-     */
     public int jump() {
         return jump;
     }
 
-    /**
-     * Devuelve el nivel de supervivencia.
-     *
-     * @return el nivel de supervivencia actual
-     */
     public int survival() {
         return survival;
     }
 
-    /**
-     * Devuelve los puntos disponibles para mejorar estadísticas.
-     *
-     * @return puntos acumulados sin gastar
-     */
     public int points() {
         return points;
     }
 
     /**
-     * Suma puntos a los disponibles del jugador.
+     * Devuelve el costo en puntos de la siguiente mejora.
      *
-     * @param amount cantidad de puntos a sumar; no puede ser negativa
-     * @throws IllegalArgumentException si la cantidad es negativa
+     * @return costo actual (500, 1000, 2000, ...)
      */
-    public void addPoints(int amount) {
+    public int nextUpgradeCost() {
+        return nextUpgradeCost;
+    }
+
+    /**
+     * Suma puntos al jugador (por ejemplo, 100 al ganar o 25 al perder).
+     *
+     * @param amount puntos a sumar (no negativo)
+     */
+    public void addPoints(int amount) throws DopoSoccerException {
         if (amount < 0) {
-            throw new IllegalArgumentException("La cantidad de puntos no puede ser negativa.");
+            throw new DopoSoccerException(DopoSoccerException.NEGATIVE_POINTS);
         }
         points += amount;
     }
 
-    /**
-     * Mejora la velocidad en 1 nivel, gastando 1 punto.
-     *
-     * @throws IllegalStateException si no hay puntos o ya está en el máximo
-     */
     public void improveSpeed() {
         speed = improve(speed);
     }
 
-    /**
-     * Mejora la patada en 1 nivel, gastando 1 punto.
-     *
-     * @throws IllegalStateException si no hay puntos o ya está en el máximo
-     */
     public void improveKick() {
         kick = improve(kick);
     }
 
-    /**
-     * Mejora el salto en 1 nivel, gastando 1 punto.
-     *
-     * @throws IllegalStateException si no hay puntos o ya está en el máximo
-     */
     public void improveJump() {
         jump = improve(jump);
     }
 
-    /**
-     * Mejora la supervivencia en 1 nivel, gastando 1 punto.
-     *
-     * @throws IllegalStateException si no hay puntos o ya está en el máximo
-     */
     public void improveSurvival() {
         survival = improve(survival);
     }
 
-    /**
-     * Calcula la mejora de una estadística: valida que se pueda mejorar,
-     * gasta 1 punto y devuelve el nuevo valor. Este método no modifica la
-     * estadística por sí mismo; quien lo llama debe guardar el valor devuelto.
-     *
-     * @param currentValue valor actual de la estadística
-     * @return el valor mejorado (el actual más 1)
-     * @throws IllegalStateException si no hay puntos disponibles o la
-     *         estadística ya está en 10
-     */
     private int improve(int currentValue) {
-        if (points == 0) {
-            throw new IllegalStateException("No hay puntos disponibles para mejorar estadísticas.");
+        if (currentValue >= MAX_LEVEL) {
+            throw new IllegalStateException(DopoSoccerException.STAT_AT_MAX);
         }
-        if (currentValue >= 10) {
-            throw new IllegalStateException("La estadística ya está en su máximo.");
+        if (points < nextUpgradeCost) {
+            throw new IllegalStateException(DopoSoccerException.INSUFFICIENT_POINTS);
         }
-        points--;
+        points -= nextUpgradeCost;
+        nextUpgradeCost *= 2;
         return currentValue + 1;
     }
 }

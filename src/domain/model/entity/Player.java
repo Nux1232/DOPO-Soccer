@@ -1,205 +1,150 @@
 package domain.model.entity;
 
+import domain.model.exception.DopoSoccerException;
+
 /**
- * Representa a un jugador durante un partido.
- *
- * Guarda su personaje (país), sus estadísticas, sus goles, su vida,
- * su barra de poder y el poder activo, además de su posición y su
- * movimiento en la cancha. La clase solo mantiene el estado y aplica
- * reglas simples (daño, carga del poder); el movimiento y las colisiones
- * los calcula otra clase del dominio.
+ * Representa a un jugador durante un partido de DOPOSoccer.
  */
 public final class Player {
 
-    /** Radio del jugador, en las mismas unidades que usa la cancha. */
-    public static final double RADIUS = 25;
+    /** Radio del jugador en píxeles. */
+    public static final double RADIUS = 25.0;
 
     /** Valor máximo de la barra de poder. */
-    public static final double MAX_POWER_CHARGE = 100;
+    public static final double MAX_POWER_CHARGE = 100.0;
 
-    /** Personaje (país) que eligió el jugador. No cambia durante el partido. */
+    /** Segundos que tarda la barra de poder en llenarse por completo (regla 1). */
+    public static final double POWER_CHARGE_SECONDS = 10.0;
+
+    /** Segundos que dura el aturdimiento cuando la vida llega a cero. */
+    public static final double STUN_DURATION_SECONDS = 3.0;
+
+    /** Daño base de una patada normal (Tabla 4, Anexo 2). */
+    public static final double BASE_KICK_DAMAGE = 10.0;
+
     private final Country country;
-
-    /** Estadísticas del jugador (velocidad, patada, salto y supervivencia). */
     private final PlayerStats stats = new PlayerStats();
-
-    /** Goles anotados en el partido actual. */
     private int goals;
-
-    /** Vida actual del jugador. */
     private double health;
-
-    /** Carga actual de la barra de poder, entre 0 y #MAX_POWER_CHARGE. */
     private double powerCharge;
-
-    /** Poder activo en este momento, Power.NONE si no tiene ninguno. */
     private Power power = Power.NONE;
-
-    /** Posición horizontal del jugador. */
     private double x;
-
-    /** Posición vertical del jugador. */
     private double y;
-
-    /** Velocidad horizontal actual. */
     private double velocityX;
-
-    /** Velocidad vertical actual. */
     private double velocityY;
-
-    /** Indica si el jugador está apoyado en el suelo. */
     private boolean grounded;
-
-    /** Segundos que faltan para poder volver a patear. */
     private double kickCooldown;
+    private double stunTimer;
 
-    /** Segundos que le quedan al poder activo antes de apagarse. */
-    private double powerDuration;
-
-    /**
-     * Crea un jugador con un personaje y una posición horizontal inicial.
-     * Empieza con la vida al máximo, la barra de poder vacía y sin goles.
-     *
-     * @param country personaje (país) del jugador
-     * @param x posición horizontal inicial
-     */
     public Player(Country country, double x) {
         this.country = country;
         this.x = x;
         this.health = maxHealth();
     }
 
-    /**
-     * Devuelve el personaje del jugador.
-     *
-     * @return el país elegido
-     */
     public Country country() {
         return country;
     }
 
-    /**
-     * Devuelve las estadísticas del jugador.
-     *
-     * @return las estadísticas actuales
-     */
     public PlayerStats stats() {
         return stats;
     }
 
-    /**
-     * Devuelve los goles anotados en el partido.
-     *
-     * @return número de goles
-     */
     public int goals() {
         return goals;
     }
 
-    /**
-     * Devuelve la vida actual del jugador.
-     *
-     * @return puntos de vida actuales
-     */
     public double health() {
         return health;
     }
 
     /**
-     * Calcula la vida máxima según la estadística de supervivencia,
-     * con la fórmula 100 + (survival - 5) * 10.
+     * Calcula la vida máxima según la estadística Survival (Anexo 2, Tabla 2):
+     * vidaMax = 100 * (1 + 0.10 * (Survival - 1)).
      *
-     * @return puntos de vida máximos
+     * @return puntos de vida máximos (entre 100 y 190)
      */
     public double maxHealth() {
-        return 100 + (stats.survival() - 5) * 10;
+        return Math.round(100.0 * (1.0 + 0.10 * (stats.survival() - 1)));
     }
 
     /**
-     * Devuelve la carga actual de la barra de poder.
+     * Calcula el multiplicador de daño según la estadística Kick (Anexo 2, Tabla 3):
+     * multiplicadorKick = 1 + 0.10 * (Kick - 1).
      *
-     * @return valor entre 0 y MAX_POWER_CHARGE
+     * @return multiplicador entre 1.0 y 1.9
      */
+    public double kickMultiplier() {
+        return 1.0 + 0.10 * (stats.kick() - 1);
+    }
+
+    /**
+     * Calcula el daño que hace una patada normal de este jugador:
+     * 10 * multiplicadorKick.
+     *
+     * @return daño de patada (entre 10 y 19)
+     */
+    public double kickDamage() {
+        return BASE_KICK_DAMAGE * kickMultiplier();
+    }
+
     public double powerCharge() {
         return powerCharge;
     }
 
-    /**
-     * Devuelve el poder activo del jugador.
-     *
-     * @return el poder activo, o Power.NONE si no tiene ninguno
-     */
     public Power power() {
         return power;
     }
 
     /**
-     * Devuelve la posición horizontal del jugador.
+     * Indica si el jugador está aturdido (vida llegó a 0).
      *
-     * @return la coordenada x actual
+     * @return true si está aturdido y no puede moverse, saltar ni patear
      */
+    public boolean stunned() {
+        return stunTimer > 0;
+    }
+
+    public double stunTimer() {
+        return stunTimer;
+    }
+
     public double x() {
         return x;
     }
 
-    /**
-     * Devuelve la posición vertical del jugador.
-     *
-     * @return la coordenada y actual
-     */
     public double y() {
         return y;
     }
 
-    /**
-     * Devuelve la velocidad horizontal del jugador.
-     *
-     * @return la velocidad en el eje x
-     */
     public double velocityX() {
         return velocityX;
     }
 
-    /**
-     * Devuelve la velocidad vertical del jugador.
-     *
-     * @return la velocidad en el eje y
-     */
     public double velocityY() {
         return velocityY;
     }
 
-    /**
-     * Indica si el jugador está apoyado en el suelo.
-     *
-     * @return {@code true} si está en el suelo
-     */
     public boolean grounded() {
         return grounded;
     }
 
-    /**
-     * Devuelve el tiempo restante antes de poder patear de nuevo.
-     *
-     * @return segundos restantes; 0 si ya puede patear
-     */
     public double kickCooldown() {
         return kickCooldown;
     }
 
-    /** Suma un gol al marcador del jugador. */
     public void scoreGoal() {
         goals++;
     }
 
     /**
-     * Coloca al jugador en una posición y lo deja quieto: pone su
-     * velocidad en cero, lo marca como no apoyado en el suelo y
-     * reinicia el tiempo de espera de la patada.
-     *
-     * @param x nueva posición horizontal
-     * @param y nueva posición vertical
+     * Regla 1 de poderes: cuando el jugador recibe un gol, su barra de poder
+     * aumenta de inmediato un cuarto (1/4) de su capacidad máxima.
      */
+    public void onGoalConceded() {
+        powerCharge = Math.min(MAX_POWER_CHARGE, powerCharge + MAX_POWER_CHARGE * 0.25);
+    }
+
     public void moveTo(double x, double y) {
         this.x = x;
         this.y = y;
@@ -209,114 +154,101 @@ public final class Player {
         kickCooldown = 0;
     }
 
-    /**
-     * Cambia solo la posición del jugador, sin tocar su velocidad
-     * ni el resto de su estado.
-     *
-     * @param x nueva posición horizontal
-     * @param y nueva posición vertical
-     */
     public void setPosition(double x, double y) {
         this.x = x;
         this.y = y;
     }
 
-    /**
-     * Cambia la velocidad del jugador.
-     *
-     * @param velocityX nueva velocidad horizontal
-     * @param velocityY nueva velocidad vertical
-     */
     public void setVelocity(double velocityX, double velocityY) {
         this.velocityX = velocityX;
         this.velocityY = velocityY;
     }
 
-    /**
-     * Indica si el jugador está apoyado en el suelo.
-     *
-     * @param grounded true si está en el suelo
-     */
     public void setGrounded(boolean grounded) {
         this.grounded = grounded;
     }
 
-    /**
-     * Inicia el tiempo de espera entre patadas.
-     *
-     * @param seconds segundos que deben pasar antes de la siguiente patada
-     */
     public void startKickCooldown(double seconds) {
         kickCooldown = seconds;
     }
 
     /**
-     * Actualiza el estado del jugador al pasar el tiempo.
+     * Avanza los temporizadores del jugador:
+     * - Reduce la espera de patada.
+     * - Recarga la barra de poder en 10 segundos (incluso si ya tiene el aura activa).
+     * - Si está aturdido, descuenta los 3 segundos y al terminar restaura la vida al máximo.
      *
-     * Reduce el tiempo de espera de la patada, recarga la barra de
-     * poder (5 unidades por segundo, sin pasar del máximo) y descuenta
-     * tiempo al poder activo; cuando este llega a cero, el poder se apaga.
-     *
-     * @param seconds segundos transcurridos desde la actualización anterior
+     * @param seconds segundos transcurridos
      */
     public void tick(double seconds) {
-        kickCooldown = Math.max(0, kickCooldown - seconds);
-        powerCharge = Math.min(MAX_POWER_CHARGE, powerCharge + seconds * 5);
-        if (powerDuration > 0) {
-            powerDuration = Math.max(0, powerDuration - seconds);
-            if (powerDuration == 0) {
-                power = Power.NONE;
+        kickCooldown = Math.max(0.0, kickCooldown - seconds);
+
+        double chargePerSecond = MAX_POWER_CHARGE / POWER_CHARGE_SECONDS;
+        powerCharge = Math.min(MAX_POWER_CHARGE, powerCharge + seconds * chargePerSecond);
+
+        if (stunTimer > 0) {
+            stunTimer = Math.max(0.0, stunTimer - seconds);
+            if (stunTimer == 0.0) {
+                health = maxHealth();
             }
         }
     }
 
     /**
-     * Intenta activar el poder del jugador.
+     * Reglas 2, 3 y 7 de poderes:
+     * Con la barra llena y sin poder activo, activa el aura (sin límite de tiempo)
+     * y vacía la barra para que empiece a recargarse de inmediato.
      *
-     * Solo se activa si no tiene ya un poder activo y la barra está
-     * llena. Al activarse, la barra se vacía y el poder queda activo
-     * durante 5 segundos.
-     *
-     * @return true si el poder se activó, false si no
-     *         se cumplían las condiciones
+     * @return true si se activó el aura
      */
     public boolean activatePower() {
-        if (power != Power.NONE || powerCharge < MAX_POWER_CHARGE) {
+        if (power != Power.NONE || powerCharge < MAX_POWER_CHARGE || stunned()) {
             return false;
         }
         power = Power.AURA;
-        powerCharge = 0;
-        powerDuration = 5;
+        powerCharge = 0.0;
         return true;
     }
 
     /**
-     * Resta vida al jugador. La vida nunca baja de cero.
+     * Regla 4 de poderes: cuando el personaje con poder toca el balón,
+     * ejecuta su tiro de poder y el aura desaparece.
      *
-     * @param amount daño a aplicar; no puede ser negativo
-     * @throws IllegalArgumentException si el daño es negativo
+     * @return true si tenía el aura activa y fue consumida
      */
-    public void takeDamage(double amount) {
-        if (amount < 0) {
-            throw new IllegalArgumentException("El daño no puede ser negativo.");
+    public boolean consumePower() {
+        if (power == Power.NONE) {
+            return false;
         }
-        health = Math.max(0, Math.min(maxHealth(), health) - amount);
+        power = Power.NONE;
+        return true;
     }
 
     /**
-     * Reinicia al jugador para empezar un partido: pone los goles en cero,
-     * la vida al máximo, la barra de poder vacía y sin poder activo, y
-     * lo coloca en la posición indicada.
+     * Resta vida al jugador. Si la vida llega a cero, queda aturdido durante 3 segundos.
      *
-     * @param x posición horizontal inicial
-     * @param y posición vertical inicial
+     * @param amount daño recibido (no negativo)
      */
+    public void takeDamage(double amount) throws DopoSoccerException{
+        if (amount < 0) {
+            throw new DopoSoccerException(DopoSoccerException.NEGATIVE_DAMAGE);
+        }
+        if (stunned()) {
+            return;
+        }
+        health = Math.max(0.0, Math.min(maxHealth(), health) - amount);
+        if (health == 0.0) {
+            stunTimer = STUN_DURATION_SECONDS;
+            velocityX = 0.0;
+        }
+    }
+
     public void resetForMatch(double x, double y) {
         goals = 0;
         health = maxHealth();
         powerCharge = 0;
         power = Power.NONE;
-        powerDuration = 0;
+        stunTimer = 0;
         moveTo(x, y);
     }
 }

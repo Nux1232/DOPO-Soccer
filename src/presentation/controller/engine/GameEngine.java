@@ -1,5 +1,6 @@
 package presentation.controller.engine;
 
+import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
 import domain.model.game.PlayerInput;
 
@@ -19,7 +20,7 @@ public final class GameEngine {
         return match;
     }
 
-    public void update(PlayerInput firstInput, PlayerInput secondInput, double deltaSeconds) {
+    public void update(PlayerInput firstInput, PlayerInput secondInput, double deltaSeconds) throws DopoSoccerException {
         match.update(firstInput, secondInput, deltaSeconds);
     }
 }

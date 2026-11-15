@@ -2,6 +2,7 @@ package domain.model.physics;
 
 import domain.model.entity.Ball;
 import domain.model.entity.Player;
+import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
 import domain.model.game.PlayerInput;
 import org.dyn4j.dynamics.Body;
@@ -106,22 +107,44 @@ public class PhysicsEngine {
     }
 
     /**
-     * Ejecuta la patada de un jugador sobre el balón si no tiene espera activa
-     * y el balón está dentro del alcance.
+     * Sobrecarga compatible con las pruebas unitarias para patear únicamente el balón.
      */
-    public void kick(Player player, Ball ball, int direction) {
-        if (player.kickCooldown() > 0) {
+    public void kick(Player player, Ball ball, int direction) throws DopoSoccerException {
+        kick(player, null, ball, direction);
+    }
+
+    /**
+     * Ejecuta la patada de un jugador.
+     * - Si está aturdido o en espera (cooldown), no hace nada.
+     * - Si el balón está al alcance, impulsa únicamente el balón (Tabla 4, Anexo 2).
+     * - Si no toca el balón pero el rival está al alcance del pie, le aplica
+     *   10 * multiplicadorKick de daño.
+     */
+    public void kick(Player kicker, Player opponent, Ball ball, int direction) throws DopoSoccerException {
+        if (kicker.kickCooldown() > 0 || kicker.stunned()) {
             return;
         }
-        double dx = ball.x() - player.x();
-        double dy = ball.y() - player.y();
-        double distance = Math.hypot(dx, dy);
+        int dir = direction >= 0 ? 1 : -1;
+        double dxBall = ball.x() - kicker.x();
+        double dyBall = ball.y() - kicker.y();
+        double distBall = Math.hypot(dxBall, dyBall);
 
-        if (distance <= KICK_RANGE) {
-            int dir = direction >= 0 ? 1 : -1;
+        if (distBall <= KICK_RANGE) {
             ball.setVelocity(dir * KICK_SPEED_X, KICK_SPEED_Y);
             syncBallToBody(ball, ballBody);
-            player.startKickCooldown(KICK_COOLDOWN_SECONDS);
+            kicker.startKickCooldown(KICK_COOLDOWN_SECONDS);
+            return;
+        }
+
+        if (opponent != null) {
+            double dxOpp = opponent.x() - kicker.x();
+            double dyOpp = opponent.y() - kicker.y();
+            double distOpp = Math.hypot(dxOpp, dyOpp);
+            boolean facingOpponent = (dir > 0 && dxOpp >= -Player.RADIUS) || (dir < 0 && dxOpp <= Player.RADIUS);
+            if (distOpp <= KICK_RANGE + Player.RADIUS * 0.5 && facingOpponent) {
+                opponent.takeDamage(kicker.kickDamage());
+                kicker.startKickCooldown(KICK_COOLDOWN_SECONDS);
+            }
         }
     }
 
@@ -219,25 +242,22 @@ public class PhysicsEngine {
         return body;
     }
 
-    // ==================== Sincronización y Reglas ====================
-
     private void applyPlayerInput(Player player, PlayerInput input, boolean kickoffLocked) {
-        if (kickoffLocked) {
+        if (kickoffLocked || player.stunned()) {
             player.setVelocity(0, player.velocityY());
             return;
         }
         if (input.power()) {
             player.activatePower();
         }
-        double speedMultiplier = 1.0 + 0.05 * (player.stats().speed() - 1);
+        double speedMultiplier = 1.0 + 0.10 * (player.stats().speed() - 1);
         double vx = input.horizontalDirection() * PLAYER_MOVE_SPEED * speedMultiplier;
         double vy = player.velocityY();
 
         boolean onGround = player.grounded() || player.y() + Player.RADIUS >= Game.GROUND_Y - 2.0;
         if (input.jump() && onGround) {
-            double jumpMultiplier = 1.0 + 0.05 * (player.stats().jump() - 1);
+            double jumpMultiplier = 1.0 + 0.10 * (player.stats().jump() - 1);
             vy = PLAYER_JUMP_SPEED * jumpMultiplier;
-            // Despegar ligeramente del suelo para que Dyn4j no anule el impulso vertical
             player.setPosition(player.x(), Game.GROUND_Y - Player.RADIUS - 1.5);
             player.setGrounded(false);
         }

@@ -3,6 +3,7 @@ package domain.model.game;
 import domain.model.entity.Ball;
 import domain.model.entity.Country;
 import domain.model.entity.Player;
+import domain.model.exception.DopoSoccerException;
 import domain.model.physics.PhysicsEngine;
 
 /**
@@ -24,9 +25,9 @@ public class Game {
     private final PhysicsEngine physicsEngine;
     private double kickoffDelay;
 
-    public Game(PlayerMode playerMode, Country firstCountry, Country secondCountry) {
+    public Game(PlayerMode playerMode, Country firstCountry, Country secondCountry) throws DopoSoccerException {
         if (playerMode == null || firstCountry == null || secondCountry == null) {
-            throw new IllegalArgumentException("La modalidad y los personajes son obligatorios.");
+            throw new DopoSoccerException(DopoSoccerException.NULL_CONFIG);
         }
         this.playerMode = playerMode;
         this.firstPlayer = new Player(firstCountry, WIDTH / 2 - 60);
@@ -56,42 +57,41 @@ public class Game {
         return kickoffDelay > 0;
     }
 
+    /**
+     * Registra un gol para el jugador indicado (1 o 2), incrementa en 1/4 la
+     * barra de poder del rival que recibió el gol y prepara el saque central.
+     */
     public void scoreGoal(int scoringPlayer) {
         if (scoringPlayer != 1 && scoringPlayer != 2) {
             return;
         }
         if (scoringPlayer == 1) {
             firstPlayer.scoreGoal();
+            secondPlayer.onGoalConceded();
         } else {
             secondPlayer.scoreGoal();
+            firstPlayer.onGoalConceded();
         }
         prepareKickoff();
     }
 
-    public void updateKickoffDelay(double deltaSeconds) {
+    public void updateKickoffDelay(double deltaSeconds) throws DopoSoccerException {
         if (deltaSeconds < 0) {
-            throw new IllegalArgumentException("El tiempo no puede ser negativo.");
+            throw new DopoSoccerException(DopoSoccerException.NEGATIVE_TIME);
         }
         kickoffDelay = Math.max(0.0, kickoffDelay - deltaSeconds);
     }
 
-    /**
-     * Avanza el estado del partido un cuadro.
-     *
-     * @param firstInput   controles del jugador 1
-     * @param secondInput  controles del jugador 2
-     * @param deltaSeconds segundos transcurridos desde el cuadro anterior
-     */
-    public void update(PlayerInput firstInput, PlayerInput secondInput, double deltaSeconds) {
+    public void update(PlayerInput firstInput, PlayerInput secondInput, double deltaSeconds) throws DopoSoccerException {
         physicsEngine.update(this, firstInput, secondInput, deltaSeconds);
         double delta = Math.min(deltaSeconds, 1.0 / 30.0);
         updateKickoffDelay(delta);
         if (!kickoffDelayActive()) {
             if (firstInput.kick()) {
-                physicsEngine.kick(firstPlayer, ball, 1);
+                physicsEngine.kick(firstPlayer, secondPlayer, ball, 1);
             }
             if (secondInput.kick()) {
-                physicsEngine.kick(secondPlayer, ball, -1);
+                physicsEngine.kick(secondPlayer, firstPlayer, ball, -1);
             }
         }
     }
