@@ -1,4 +1,4 @@
-package tests;
+package test;
 
 import domain.model.entity.Ball;
 import domain.model.entity.Country;
@@ -7,7 +7,6 @@ import domain.model.entity.PlayerStats;
 import domain.model.entity.Power;
 import domain.model.game.Game;
 import domain.model.game.GameMatchConfig;
-import domain.model.game.GameMode;
 import domain.model.game.PlayerMode;
 import domain.model.physics.PhysicsEngine;
 import org.junit.jupiter.api.Test;

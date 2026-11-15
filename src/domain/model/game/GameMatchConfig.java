@@ -3,83 +3,41 @@ package domain.model.game;
 import domain.model.entity.Country;
 
 /**
- * Guarda las opciones que el usuario elige antes de empezar un partido:
- * el modo de juego y el personaje de cada jugador.
- *
- * <p>Esta clase solo almacena las elecciones; con ellas se crea después
- * el partido. Los personajes tienen valores por defecto
- * y nunca pueden ser null.
+ * Configuración compartida para armar un partido antes de iniciarlo.
  */
 public class GameMatchConfig {
 
-    /** Modo de juego elegido; es null hasta que se elija uno. */
-    private GameMode gameMode;
+    private PlayerMode gameMode;
+    private Country player1Character = Country.values()[0];
+    private Country player2Character = Country.values()[1];
 
-    /** Personaje del jugador 1. Por defecto, Corea del Sur. */
-    private Country player1Character = Country.SOUTH_KOREA;
-
-    /** Personaje del jugador 2. Por defecto, Camerún. */
-    private Country player2Character = Country.CAMEROON;
-
-    /**
-     * Devuelve el modo de juego elegido.
-     *
-     * @return el modo de juego, o null si todavía no se ha elegido
-     */
-    public GameMode getGameMode() {
+    public PlayerMode getGameMode() {
         return gameMode;
     }
 
-    /**
-     * Establece el modo de juego.
-     *
-     * @param gameMode el modo de juego elegido
-     */
-    public void setGameMode(GameMode gameMode) {
+    public void setGameMode(PlayerMode gameMode) {
         this.gameMode = gameMode;
     }
 
-    /**
-     * Devuelve el personaje elegido por el jugador 1.
-     *
-     * @return el personaje del jugador 1
-     */
     public Country getPlayer1Character() {
         return player1Character;
     }
 
-    /**
-     * Establece el personaje del jugador 1.
-     *
-     * @param character el personaje elegido; no puede ser null.
-     * @throws IllegalArgumentException si el personaje es null.
-     */
-    public void setPlayer1Character(Country character) {
-        if (character == null) {
+    public void setPlayer1Character(Country player1Character) {
+        if (player1Character == null) {
             throw new IllegalArgumentException("El personaje del jugador 1 es obligatorio.");
         }
-        player1Character = character;
+        this.player1Character = player1Character;
     }
 
-    /**
-     * Devuelve el personaje elegido por el jugador 2.
-     *
-     * @return el personaje del jugador 2
-     */
     public Country getPlayer2Character() {
         return player2Character;
     }
 
-    /**
-     * Establece el personaje del jugador 2.
-     *
-     * @param character el personaje elegido; no puede ser null.
-     * @throws IllegalArgumentException si el personaje es null.
-     */
-    public void setPlayer2Character(Country character) {
-        if (character == null) {
+    public void setPlayer2Character(Country player2Character) {
+        if (player2Character == null) {
             throw new IllegalArgumentException("El personaje del jugador 2 es obligatorio.");
         }
-        player2Character = character;
+        this.player2Character = player2Character;
     }
 }
