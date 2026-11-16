@@ -209,7 +209,7 @@ Por lo anterior, consideramos que el proyecto tiene un avance importante y una b
 
 ---
 
-## 3. Considerando las prácticas XP del laboratorio, ¿cuál fue la más útil? ¿Por qué?
+## 3. Considerando las prácticas XP del Proyecto, ¿cuál fue la más útil? ¿Por qué?
 
 Consideramos que una de las prácticas más útiles fue el desarrollo incremental acompañado de integración frecuente.
 
