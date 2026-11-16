@@ -313,11 +313,6 @@ Las referencias principales fueron:
 
    Se utilizó como referencia para la estructura y ejecución de pruebas automatizadas en Java.
 
-5. **Object Management Group. (2017). _OMG Unified Modeling Language (OMG UML), Version 2.5.1_.**  
-   https://www.omg.org/spec/UML/2.5.1/
-
-   Se utilizó como referencia para la elaboración e interpretación de diagramas UML, especialmente diagramas de clases, relaciones de herencia, asociaciones, dependencias y diagramas de secuencia.
-
 Consideramos que la documentación oficial de Java y JavaFX fue especialmente útil durante la implementación, mientras que la documentación de Dyn4j fue importante para resolver los aspectos relacionados con la simulación física.
 
 La especificación de UML también fue relevante porque permitió representar los cambios realizados en la arquitectura y detectar diferencias entre los diagramas y el código implementado.
