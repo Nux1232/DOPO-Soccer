@@ -23,6 +23,10 @@ public final class Ball {
 
     /** Velocidad vertical actual del balón. */
     private double velocityY;
+    private PowerShot activePowerShot;
+    private Player powerShotOwner;
+    private double powerShotTime;
+    private boolean powerEffectApplied;
 
     /**
      * Crea un balón en una posición inicial. Su velocidad inicial es cero.
@@ -69,6 +73,50 @@ public final class Ball {
      */
     public double velocityY() {
         return this.velocityY;
+    }
+
+    public PowerShot activePowerShot() {
+        return activePowerShot;
+    }
+
+    public Player powerShotOwner() {
+        return powerShotOwner;
+    }
+
+    public double powerShotTime() {
+        return powerShotTime;
+    }
+
+    public boolean powerEffectApplied() {
+        return powerEffectApplied;
+    }
+
+    public void startPowerShot(PowerShot shot, Player owner) {
+        activePowerShot = shot;
+        powerShotOwner = owner;
+        powerShotTime = shot.durationSeconds();
+        powerEffectApplied = false;
+    }
+
+    public void markPowerEffectApplied() {
+        powerEffectApplied = true;
+    }
+
+    public void tickPowerShot(double seconds) {
+        if (activePowerShot == null) {
+            return;
+        }
+        powerShotTime = Math.max(0.0, powerShotTime - seconds);
+        if (powerShotTime == 0.0) {
+            clearPowerShot();
+        }
+    }
+
+    public void clearPowerShot() {
+        activePowerShot = null;
+        powerShotOwner = null;
+        powerShotTime = 0.0;
+        powerEffectApplied = false;
     }
 
     /**

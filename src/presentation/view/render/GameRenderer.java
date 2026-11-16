@@ -3,7 +3,7 @@ package presentation.view.render;
 
 import domain.model.entity.Ball;
 import domain.model.entity.Player;
-import domain.model.entity.Power;
+import domain.model.entity.PowerShot;
 import domain.model.game.Game;
 
 import javafx.scene.canvas.GraphicsContext;
@@ -13,6 +13,8 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -32,6 +34,7 @@ public final class GameRenderer {
     private static final double BAR_WIDTH = 230;
 
     private final Image backgroundImage;
+    private final Map<PowerShot, Image> powerShotImages = new EnumMap<>(PowerShot.class);
 
     public GameRenderer() {
         backgroundImage = new Image(
@@ -40,6 +43,20 @@ public final class GameRenderer {
                         "No se encontró background_match.png"
                 )
         );
+        for (PowerShot shot : PowerShot.values()) {
+            String path = "/resources/effects/powers/" + shot.visualAsset();
+            var resource = getClass().getResource(path);
+            if (resource == null) {
+                System.err.println("Recurso visual opcional no encontrado: " + path);
+                continue;
+            }
+            Image image = new Image(resource.toExternalForm(), false);
+            if (image.isError()) {
+                throw new IllegalStateException("No se pudo cargar el recurso visual: " + path,
+                        image.getException());
+            }
+            powerShotImages.put(shot, image);
+        }
     }
 
     /**
@@ -89,29 +106,26 @@ public final class GameRenderer {
 
         double x = player.x();
         double y = player.y();
-
         Color jersey = Color.web(player.country().color());
-
-        // Aura del poder.
-        if (player.power() != Power.NONE) {
-            graphics.setFill(Color.rgb(255, 227, 71, 0.32));
-            graphics.fillOval(x - 39, y - 44, 78, 78);
-        }
 
         // Sombra.
         graphics.setFill(Color.rgb(35, 44, 54, 0.25));
         graphics.fillOval(
-                x - 28,
+                x - PlayerVisualMetrics.WIDTH / 2,
                 Game.GROUND_Y - 5,
-                56,
+                PlayerVisualMetrics.WIDTH,
                 10
         );
+
+        graphics.save();
+        graphics.translate(x, y);
+        graphics.scale(PlayerVisualMetrics.scaleX(), PlayerVisualMetrics.scaleY());
 
         // Camiseta.
         graphics.setFill(jersey);
         graphics.fillRoundRect(
-                x - 21,
-                y - 9,
+                -21,
+                -9,
                 42,
                 30,
                 12,
@@ -121,8 +135,8 @@ public final class GameRenderer {
         // Cabeza.
         graphics.setFill(Color.web("#f4c49a"));
         graphics.fillOval(
-                x - Player.RADIUS,
-                y - Player.RADIUS * 2,
+                -Player.RADIUS,
+                -PlayerVisualMetrics.TOP_OFFSET,
                 Player.RADIUS * 2,
                 Player.RADIUS * 2
         );
@@ -130,8 +144,8 @@ public final class GameRenderer {
         // Ojo.
         graphics.setFill(Color.web("#263238"));
         graphics.fillOval(
-                x + (x < Game.WIDTH / 2 ? 5 : -11),
-                y - 32,
+                x < Game.WIDTH / 2 ? 5 : -11,
+                -32,
                 6,
                 6
         );
@@ -141,35 +155,61 @@ public final class GameRenderer {
         graphics.setLineWidth(2);
 
         graphics.strokeLine(
-                x - 13, y + 20,
-                x - 16, y + 29
+                -13, 20,
+                -16, 29
         );
 
         graphics.strokeLine(
-                x + 13, y + 20,
-                x + 16, y + 29
+                13, 20,
+                16, 29
         );
+        graphics.restore();
     }
 
     /**
      * Dibuja el balón.
      */
     private void drawBall(GraphicsContext graphics, Ball ball) {
+        PowerShot shot = ball.activePowerShot();
+        if (shot == PowerShot.ILLUSION) {
+            double elapsed = shot.durationSeconds() - ball.powerShotTime();
+            double rotation = elapsed * 1.6;
+            for (int i = 0; i < 8; i++) {
+                double angle = rotation + Math.PI * 2 * i / 8;
+                double x = ball.x() + Math.cos(angle) * 38;
+                double y = ball.y() + Math.sin(angle) * 26;
+                drawBallAt(graphics, x, y, shot);
+            }
+            return;
+        }
+        drawBallAt(graphics, ball.x(), ball.y(), shot);
+    }
 
+    private void drawBallAt(GraphicsContext graphics, double x, double y, PowerShot shot) {
         graphics.setFill(Color.rgb(25, 38, 48, 0.2));
 
         graphics.fillOval(
-                ball.x() - Ball.RADIUS,
+                x - Ball.RADIUS,
                 Game.GROUND_Y - 3,
                 Ball.RADIUS * 2,
                 7
         );
 
+        if (shot != null) {
+            Image effectImage = powerShotImages.get(shot);
+            if (effectImage != null) {
+                graphics.drawImage(effectImage, x - 40, y - 30, 80, 60);
+            } else {
+                graphics.setFill(Color.web(shot.visualColor(), 0.42));
+                graphics.fillOval(x - 25, y - 25, 50, 50);
+            }
+        }
+
         graphics.setFill(Color.WHITE);
 
         graphics.fillOval(
-                ball.x() - Ball.RADIUS,
-                ball.y() - Ball.RADIUS,
+                x - Ball.RADIUS,
+                y - Ball.RADIUS,
                 Ball.RADIUS * 2,
                 Ball.RADIUS * 2
         );
@@ -177,8 +217,8 @@ public final class GameRenderer {
         graphics.setFill(Color.web("#242a31"));
 
         graphics.fillOval(
-                ball.x() - 5,
-                ball.y() - 5,
+                x - 5,
+                y - 5,
                 10,
                 10
         );

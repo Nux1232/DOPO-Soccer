@@ -9,22 +9,23 @@ package domain.model.entity;
 public enum Country {
 
     /** Corea del Sur. */
-    SOUTH_KOREA("Corea del Sur", "#CD2E3A"),
+    SOUTH_KOREA("Corea del Sur", "#CD2E3A", PowerShot.BLUE_AURA),
 
     /** Camerún. */
-    CAMEROON("Camerún", "#F2B705"),
+    CAMEROON("Camerún", "#F2B705", PowerShot.ELECTRIC_BOLT),
 
     /** Nigeria. */
-    NIGERIA("Nigeria", "#008751"),
+    NIGERIA("Nigeria", "#008751", PowerShot.TORNADO),
 
     /** Estados Unidos. */
-    USA("Estados Unidos", "#3C3B6E");
+    USA("Estados Unidos", "#3C3B6E", PowerShot.ILLUSION);
 
     /** Nombre del país tal como se muestra al usuario. */
     private final String displayName;
 
     /** Color asociado al país, en formato hexadecimal. */
     private final String color;
+    private final PowerShot powerShot;
 
     /**
      * Crea un país con su nombre visible y su color.
@@ -33,9 +34,10 @@ public enum Country {
      * @param displayName nombre del país para mostrar en pantalla
      * @param color color del país en formato hexadecimal
      */
-    Country(String displayName, String color) {
+    Country(String displayName, String color, PowerShot powerShot) {
         this.displayName = displayName;
         this.color = color;
+        this.powerShot = powerShot;
     }
 
     /**
@@ -54,6 +56,10 @@ public enum Country {
      */
     public String color() {
         return color;
+    }
+
+    public PowerShot powerShot() {
+        return powerShot;
     }
 
     /**

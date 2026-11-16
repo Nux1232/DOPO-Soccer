@@ -34,6 +34,8 @@ public final class Player {
     private boolean grounded;
     private double kickCooldown;
     private double stunTimer;
+    private PlayerStatusEffect statusEffect = PlayerStatusEffect.NONE;
+    private double statusEffectTimer;
 
     public Player(Country country, double x) {
         this.country = country;
@@ -132,6 +134,22 @@ public final class Player {
         return kickCooldown;
     }
 
+    public PlayerStatusEffect statusEffect() {
+        return statusEffect;
+    }
+
+    public double statusEffectTimer() {
+        return statusEffectTimer;
+    }
+
+    public boolean canJump() {
+        return !stunned() && statusEffect.canJump();
+    }
+
+    public boolean canKick() {
+        return !stunned() && statusEffect.canKick();
+    }
+
     public void scoreGoal() {
         goals++;
     }
@@ -151,6 +169,7 @@ public final class Player {
         velocityY = 0;
         grounded = false;
         kickCooldown = 0;
+        clearStatusEffect();
     }
 
     public void setPosition(double x, double y) {
@@ -191,6 +210,13 @@ public final class Player {
                 health = maxHealth();
             }
         }
+
+        if (statusEffectTimer > 0) {
+            statusEffectTimer = Math.max(0.0, statusEffectTimer - seconds);
+            if (statusEffectTimer == 0.0) {
+                clearStatusEffect();
+            }
+        }
     }
 
     /**
@@ -223,6 +249,19 @@ public final class Player {
         return true;
     }
 
+    public void applyStatusEffect(PlayerStatusEffect effect, double seconds) {
+        if (effect == null || effect == PlayerStatusEffect.NONE || seconds <= 0 || stunned()) {
+            return;
+        }
+        statusEffect = effect;
+        statusEffectTimer = seconds;
+    }
+
+    public void clearStatusEffect() {
+        statusEffect = PlayerStatusEffect.NONE;
+        statusEffectTimer = 0.0;
+    }
+
     /**
      * Resta vida al jugador. Si la vida llega a cero, queda aturdido durante 3 segundos.
      *
@@ -248,6 +287,7 @@ public final class Player {
         powerCharge = 0;
         power = Power.NONE;
         stunTimer = 0;
+        clearStatusEffect();
         moveTo(x, y);
     }
 }

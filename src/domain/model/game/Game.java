@@ -130,6 +130,7 @@ public class Game {
         secondPlayer.moveTo(WIDTH / 2 + 60, GROUND_Y - Player.RADIUS);
         ball.setPosition(WIDTH / 2, 160);
         ball.setVelocity(0, 0);
+        ball.clearPowerShot();
         kickoffDelay = KICKOFF_DELAY_SECONDS;
     }
 }
