@@ -26,7 +26,7 @@ class DopoSoccerTestV2 {
             // No realiza una patada física.
         }
     };
-    
+
     @Test
     void playerStartsWithFullHealth() {
         Player player = new Player(Country.SOUTH_KOREA, 100);
