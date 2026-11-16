@@ -247,7 +247,7 @@ public final class GameRenderer {
         );
 
         graphics.fillText(
-                "PARTIDO LIBRE",
+                match.modeDescription(),
                 centerX,
                 119
         );
