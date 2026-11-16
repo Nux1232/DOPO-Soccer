@@ -1,4 +1,3 @@
-
 package presentation.view.gui;
 import domain.model.game.MatchType;
 import domain.model.entity.Country;
