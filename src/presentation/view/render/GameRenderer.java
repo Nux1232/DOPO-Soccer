@@ -141,28 +141,28 @@ public final class GameRenderer {
                 Player.RADIUS * 2
         );
 
-        // Ojo.
+        // El ojo y la pupila se orientan hacia el lado al que apunta la patada.
+        int facing = player.facingDirection();
+        double eyeX = facing > 0 ? 7 : -16;
+        graphics.setFill(Color.WHITE);
+        graphics.fillOval(eyeX, -34, 10, 8);
         graphics.setFill(Color.web("#263238"));
-        graphics.fillOval(
-                x < Game.WIDTH / 2 ? 5 : -11,
-                -32,
-                6,
-                6
-        );
+        graphics.fillOval(eyeX + (facing > 0 ? 5 : 1), -33, 4, 6);
 
-        // Piernas.
         graphics.setStroke(Color.rgb(31, 45, 54, 0.6));
-        graphics.setLineWidth(2);
-
-        graphics.strokeLine(
-                -13, 20,
-                -16, 29
-        );
-
-        graphics.strokeLine(
-                13, 20,
-                16, 29
-        );
+        if (player.kicking()) {
+            double direction = facing;
+            graphics.setLineWidth(2);
+            graphics.strokeLine(-13 * direction, 20, -16 * direction, 29);
+            graphics.setStroke(Color.web("#263238"));
+            graphics.setLineWidth(4);
+            graphics.strokeLine(13 * direction, 18, 24 * direction, 24);
+            graphics.strokeLine(24 * direction, 24, 34 * direction, 16);
+        } else {
+            graphics.setLineWidth(2);
+            graphics.strokeLine(-13, 20, -16, 29);
+            graphics.strokeLine(13, 20, 16, 29);
+        }
         graphics.restore();
     }
 

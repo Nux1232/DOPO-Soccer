@@ -20,6 +20,7 @@ public final class Player {
 
     /** Daño base de una patada normal . */
     public static final double BASE_KICK_DAMAGE = 10.0;
+    public static final double KICK_ANIMATION_SECONDS = 0.22;
 
     private final Country country;
     private final PlayerStats stats = new PlayerStats();
@@ -33,7 +34,9 @@ public final class Player {
     private double velocityY;
     private boolean grounded;
     private double kickCooldown;
+    private double kickAnimationTimer;
     private double stunTimer;
+    private int facingDirection = 1;
     private PlayerStatusEffect statusEffect = PlayerStatusEffect.NONE;
     private double statusEffectTimer;
 
@@ -134,6 +137,20 @@ public final class Player {
         return kickCooldown;
     }
 
+    public int facingDirection() {
+        return facingDirection;
+    }
+
+    public void setFacingDirection(int direction) {
+        if (direction != 0) {
+            facingDirection = direction > 0 ? 1 : -1;
+        }
+    }
+
+    public boolean kicking() {
+        return kickAnimationTimer > 0;
+    }
+
     public PlayerStatusEffect statusEffect() {
         return statusEffect;
     }
@@ -169,6 +186,7 @@ public final class Player {
         velocityY = 0;
         grounded = false;
         kickCooldown = 0;
+        kickAnimationTimer = 0;
         clearStatusEffect();
     }
 
@@ -190,6 +208,10 @@ public final class Player {
         kickCooldown = seconds;
     }
 
+    public void startKickAnimation() {
+        kickAnimationTimer = KICK_ANIMATION_SECONDS;
+    }
+
     /**
      * Avanza los temporizadores del jugador:
      * - Reduce la espera de patada.
@@ -200,6 +222,7 @@ public final class Player {
      */
     public void tick(double seconds) {
         kickCooldown = Math.max(0.0, kickCooldown - seconds);
+        kickAnimationTimer = Math.max(0.0, kickAnimationTimer - seconds);
 
         double chargePerSecond = MAX_POWER_CHARGE / POWER_CHARGE_SECONDS;
         powerCharge = Math.min(MAX_POWER_CHARGE, powerCharge + seconds * chargePerSecond);
@@ -287,6 +310,7 @@ public final class Player {
         powerCharge = 0;
         power = Power.NONE;
         stunTimer = 0;
+        kickAnimationTimer = 0;
         clearStatusEffect();
         moveTo(x, y);
     }

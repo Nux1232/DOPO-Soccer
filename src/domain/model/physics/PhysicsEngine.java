@@ -138,6 +138,7 @@ public class PhysicsEngine implements PhysicsSimulation {
             return;
         }
         int dir = direction >= 0 ? 1 : -1;
+        kicker.setFacingDirection(dir);
         double dxBall = ball.x() - kicker.x();
         double dyBall = ball.y() - kicker.y();
         double distBall = Math.hypot(dxBall, dyBall);
@@ -159,6 +160,7 @@ public class PhysicsEngine implements PhysicsSimulation {
             }
             syncBallToBody(ball, ballBody);
             kicker.startKickCooldown(KICK_COOLDOWN_SECONDS);
+            kicker.startKickAnimation();
             return;
         }
 
@@ -170,6 +172,7 @@ public class PhysicsEngine implements PhysicsSimulation {
             if (distOpp <= KICK_RANGE + Player.RADIUS * 0.5 && facingOpponent) {
                 opponent.takeDamage(kicker.kickDamage());
                 kicker.startKickCooldown(KICK_COOLDOWN_SECONDS);
+                kicker.startKickAnimation();
             }
         }
     }
@@ -273,6 +276,7 @@ public class PhysicsEngine implements PhysicsSimulation {
             player.setVelocity(0, player.velocityY());
             return;
         }
+        player.setFacingDirection((int) input.horizontalDirection());
         if (input.power() && player.statusEffect().canKick()) {
             player.activatePower();
         }
