@@ -82,9 +82,9 @@ Se utilizó una herramienta de IA como apoyo para comprender código y orientar 
 # Segunda Entrega:
 # RETROSPECTIVA – DOPO-SOCCER
 
-## 1. ¿Cuál fue el tiempo total invertido en el laboratorio por cada uno de ustedes? (Horas)
+## 1. ¿Cuál fue el tiempo total invertido en el proyecto por cada uno de ustedes? (Horas)
 
-El desarrollo del laboratorio se realizó en diferentes sesiones de trabajo, distribuidas entre el diseño, la programación, la integración de funcionalidades, las pruebas y la documentación.
+El desarrollo del proyecto se realizó en diferentes sesiones de trabajo, distribuidas entre el diseño, la programación, la integración de funcionalidades, las pruebas y la documentación.
 
 El tiempo invertido por cada integrante debe completarse con base en las horas reales dedicadas al proyecto:
 
@@ -97,9 +97,9 @@ El trabajo no se concentró únicamente en la programación. También se invirti
 
 ---
 
-## 2. ¿Cuál es el estado actual del laboratorio? ¿Por qué?
+## 2. ¿Cuál es el estado actual del proyecto? ¿Por qué?
 
-El laboratorio se encuentra en un estado funcional avanzado, aunque todavía tiene algunos aspectos pendientes de integración, documentación y validación.
+El proyecto se encuentra en un estado funcional avanzado, aunque todavía tiene algunos aspectos pendientes de integración, documentación y validación.
 
 Actualmente, DOPO-SOCCER cuenta con una aplicación desarrollada en Java 21 y JavaFX. El proyecto permite seleccionar modos de juego, escoger los países de los jugadores y configurar las condiciones del partido.
 
