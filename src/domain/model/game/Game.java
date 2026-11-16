@@ -122,7 +122,6 @@ public class Game {
             }
         }
     }
-
     /**
      * Prepara el saque inicial.
      */

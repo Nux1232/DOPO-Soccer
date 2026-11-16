@@ -1,5 +1,4 @@
 package domain.model.entity;
-
 import domain.model.exception.DopoSoccerException;
 
 /**
