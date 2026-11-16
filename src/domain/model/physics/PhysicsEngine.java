@@ -19,7 +19,7 @@ import org.dyn4j.world.World;
  * creciendo hacia abajo) al mundo físico de Dyn4j (en metros) a razón de
  * 100 píxeles por metro.
  */
-public class PhysicsEngine {
+public class PhysicsEngine implements PhysicsSimulation {
 
     /** Escala de conversión: 100 píxeles equivalen a 1 metro en Dyn4j. */
     private static final double PIXELS_PER_METER = 100.0;
@@ -71,6 +71,7 @@ public class PhysicsEngine {
     /**
      * Avanza la simulación física un cuadro usando Dyn4j.
      */
+    @Override
     public void update(Game game, PlayerInput firstInput, PlayerInput secondInput, double deltaSeconds) {
         double dt = Math.min(deltaSeconds, 1.0 / 30.0);
         if (dt <= 0) {
@@ -120,6 +121,7 @@ public class PhysicsEngine {
      * - Si no toca el balón pero el rival está al alcance del pie, le aplica
      *   10 * multiplicadorKick de daño.
      */
+    @Override
     public void kick(Player kicker, Player opponent, Ball ball, int direction) throws DopoSoccerException {
         if (kicker.kickCooldown() > 0 || kicker.stunned()) {
             return;

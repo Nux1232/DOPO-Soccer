@@ -1,5 +1,4 @@
 package domain.model.entity;
-
 import domain.model.exception.DopoSoccerException;
 
 /**
@@ -13,13 +12,13 @@ public final class Player {
     /** Valor máximo de la barra de poder. */
     public static final double MAX_POWER_CHARGE = 100.0;
 
-    /** Segundos que tarda la barra de poder en llenarse por completo (regla 1). */
+    /** Segundos que tarda la barra de poder en llenarse por completo . */
     public static final double POWER_CHARGE_SECONDS = 10.0;
 
     /** Segundos que dura el aturdimiento cuando la vida llega a cero. */
     public static final double STUN_DURATION_SECONDS = 3.0;
 
-    /** Daño base de una patada normal (Tabla 4, Anexo 2). */
+    /** Daño base de una patada normal . */
     public static final double BASE_KICK_DAMAGE = 10.0;
 
     private final Country country;

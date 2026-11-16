@@ -6,7 +6,7 @@ import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
 import domain.model.game.GameMatchConfig;
 import domain.model.game.PlayerMode;
-
+import domain.model.physics.PhysicsEngine;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
@@ -40,9 +40,7 @@ public class CharacterSelectionPane extends StackPane {
     }
 
     private void setupUI() {
-        Image background = new Image(
-                getClass().getResourceAsStream(BACKGROUND_PATH)
-        );
+        Image background = new Image(getClass().getResourceAsStream(BACKGROUND_PATH));
         ImageView backgroundView = new ImageView(background);
         backgroundView.setPreserveRatio(false);
         backgroundView.fitWidthProperty().bind(widthProperty());
@@ -64,34 +62,18 @@ public class CharacterSelectionPane extends StackPane {
                         "-fx-padding: 9 22 9 22;"
         );
 
-        VBox firstCard = createPlayerCard(
-                "JUGADOR 1",
-                matchConfig.getPlayer1Character(),
-                true
+        VBox firstCard = createPlayerCard("JUGADOR 1", matchConfig.getPlayer1Character(), true
         );
 
-        VBox secondCard = createPlayerCard(
-                "JUGADOR 2",
-                matchConfig.getPlayer2Character(),
-                false
+        VBox secondCard = createPlayerCard("JUGADOR 2", matchConfig.getPlayer2Character(), false
         );
 
-        HBox playersContainer = new HBox(
-                30,
-                firstCard,
-                secondCard
+        HBox playersContainer = new HBox(30, firstCard, secondCard
         );
 
         playersContainer.setAlignment(Pos.CENTER);
-
-        // ------------------------------------------------
-        // BOTÓN COMENZAR
-        // ------------------------------------------------
-
         Button startButton = new Button("¡COMENZAR PARTIDO!");
-
         startButton.setDefaultButton(true);
-
         startButton.setPrefWidth(260);
         startButton.setPrefHeight(52);
 
@@ -150,70 +132,43 @@ public class CharacterSelectionPane extends StackPane {
                 ViewNavigator.loadView(new MainMenuPane(matchConfig))
         );
 
-        VBox content = new VBox(
-                24,
-                title,
-                subtitle,
-                playersContainer,
-                startButton,
-                backButton
-        );
+        VBox content = new VBox(24, title, subtitle, playersContainer, startButton, backButton);
         content.setAlignment(Pos.CENTER);
         content.setPadding(new Insets(24, 32, 24, 32));
         content.setMaxWidth(1100);
-        getChildren().addAll(
-                backgroundView,
-                content
-        );
+        getChildren().addAll(backgroundView, content);
         StackPane.setAlignment(content, Pos.CENTER);
     }
 
-    private VBox createPlayerCard(
-            String heading,
-            Country selectedCountry,
-            boolean firstPlayer
-    ) {
-
+    private VBox createPlayerCard(String heading, Country selectedCountry, boolean firstPlayer) {
         Label playerLabel = new Label(heading);
-
         playerLabel.setStyle(
                 "-fx-font-size: 19px;" +
                         "-fx-font-weight: 900;" +
                         "-fx-text-fill: white;"
         );
-
         Label instruction = new Label(
                 "ELIGE TU PAÍS"
         );
-
         instruction.setStyle(
                 "-fx-font-size: 12px;" +
                         "-fx-text-fill: #c8d9eb;"
         );
-
         ComboBox<Country> countrySelector = new ComboBox<>();
-
         countrySelector.getItems().setAll(Country.values());
-
         countrySelector.setValue(selectedCountry);
-
         countrySelector.setPrefWidth(285);
         countrySelector.setPrefHeight(42);
-
         countrySelector.setMaxWidth(Double.MAX_VALUE);
-
         countrySelector.setStyle(
                 "-fx-font-size: 15px;" +
                         "-fx-background-radius: 10;"
         );
-
         countrySelector.valueProperty().addListener(
                 (observable, oldValue, newValue) -> {
-
                     if (newValue == null) {
                         return;
                     }
-
                     if (firstPlayer) {
                         matchConfig.setPlayer1Character(newValue);
                     } else {
@@ -222,23 +177,13 @@ public class CharacterSelectionPane extends StackPane {
                 }
         );
 
-        VBox card = new VBox(
-                16,
-                playerLabel,
-                instruction,
-                countrySelector
-        );
-
+        VBox card = new VBox(16, playerLabel, instruction, countrySelector);
         card.setAlignment(Pos.CENTER);
-
         card.setPadding(new Insets(25));
-
         card.setPrefWidth(330);
         card.setMinWidth(300);
         card.setMaxWidth(330);
-
         card.setMinHeight(175);
-
         card.setStyle(
                 "-fx-background-color: rgba(255,255,255,0.09);" +
                         "-fx-background-radius: 20;" +
@@ -246,23 +191,14 @@ public class CharacterSelectionPane extends StackPane {
                         "-fx-border-radius: 20;" +
                         "-fx-border-width: 1.3;"
         );
-
         return card;
     }
 
     private void startMatch() {
 
         try {
-
-            Game match = new Game(
-                    PlayerMode.PLAYER_VS_PLAYER,
-                    matchConfig.getPlayer1Character(),
-                    matchConfig.getPlayer2Character()
-            );
-
-            ViewNavigator.loadView(
-                    new GamePlayPane(match, matchConfig)
-            );
+            Game match = new Game(PlayerMode.PLAYER_VS_PLAYER, matchConfig.getPlayer1Character(), matchConfig.getPlayer2Character(), new PhysicsEngine());
+            ViewNavigator.loadView(new GamePlayPane(match, matchConfig));
 
         } catch (DopoSoccerException exception) {
 

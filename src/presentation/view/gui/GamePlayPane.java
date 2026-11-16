@@ -1,5 +1,4 @@
 package presentation.view.gui;
-
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
 import domain.model.game.GameMatchConfig;
@@ -18,6 +17,7 @@ import javafx.scene.paint.Color;
 import presentation.controller.engine.GameEngine;
 import presentation.view.render.GameRenderer;
 import presentation.view.util.ViewNavigator;
+import presentation.view.effects.PlayerEffectsLayer;
 import javafx.scene.control.Alert;
 import java.util.EnumSet;
 import java.util.Set;
@@ -33,6 +33,7 @@ public final class GamePlayPane extends BorderPane {
     private final Set<KeyCode> pressedKeys = EnumSet.noneOf(KeyCode.class);
     private final GameEngine engine;
     private final GameRenderer renderer = new GameRenderer();
+    private final PlayerEffectsLayer effectsLayer = new PlayerEffectsLayer();
     private final Canvas canvas = new Canvas();
     private final AnimationTimer animationTimer;
     private long previousFrame;
@@ -41,7 +42,7 @@ public final class GamePlayPane extends BorderPane {
         engine = new GameEngine(game);
         setStyle("-fx-background-color: #edf3f5;");
 
-        StackPane gameArea = new StackPane(canvas);
+        StackPane gameArea = new StackPane(canvas, effectsLayer);
         gameArea.setStyle("-fx-background-color: #88c9ee;");
         canvas.widthProperty().bind(gameArea.widthProperty());
         canvas.heightProperty().bind(gameArea.heightProperty());
@@ -125,6 +126,7 @@ public final class GamePlayPane extends BorderPane {
         graphics.save();
         graphics.setTransform(scale, 0, 0, scale, offsetX, offsetY);
         renderer.render(graphics, engine.match());
+        effectsLayer.update(engine.match().firstPlayer(), engine.match().secondPlayer(), scale, offsetX, offsetY);
         graphics.restore();
     }
 
