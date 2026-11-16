@@ -2,6 +2,9 @@ package domain.model.physics;
 
 import domain.model.entity.Ball;
 import domain.model.entity.Player;
+import domain.model.entity.PlayerStatusEffect;
+import domain.model.entity.Power;
+import domain.model.entity.PowerShot;
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
 import domain.model.game.PlayerInput;
@@ -72,7 +75,11 @@ public class PhysicsEngine implements PhysicsSimulation {
      * Avanza la simulación física un cuadro usando Dyn4j.
      */
     @Override
-    public void update(Game game, PlayerInput firstInput, PlayerInput secondInput, double deltaSeconds) {
+    public void update(
+            Game game,
+            PlayerInput firstInput,
+            PlayerInput secondInput,
+            double deltaSeconds) throws DopoSoccerException {
         double dt = Math.min(deltaSeconds, 1.0 / 30.0);
         if (dt <= 0) {
             return;
@@ -85,6 +92,9 @@ public class PhysicsEngine implements PhysicsSimulation {
 
         first.tick(dt);
         second.tick(dt);
+        ball.tickPowerShot(dt);
+        ballBody.getFixture(0).setRestitution(
+                ball.activePowerShot() == PowerShot.TORNADO ? 0.95 : 0.72);
 
         // 1. Aplicar entradas de control a los jugadores
         applyPlayerInput(first, firstInput, kickoffLocked);
@@ -102,6 +112,7 @@ public class PhysicsEngine implements PhysicsSimulation {
         syncBodyToPlayer(firstPlayerBody, first, kickoffLocked);
         syncBodyToPlayer(secondPlayerBody, second, kickoffLocked);
         syncBodyToBall(ballBody, ball);
+        applyPowerShotImpact(ball, first, second);
 
         // 5. Verificar si se anotó un gol
         scoreIfGoal(game);
@@ -123,7 +134,7 @@ public class PhysicsEngine implements PhysicsSimulation {
      */
     @Override
     public void kick(Player kicker, Player opponent, Ball ball, int direction) throws DopoSoccerException {
-        if (kicker.kickCooldown() > 0 || kicker.stunned()) {
+        if (kicker.kickCooldown() > 0 || !kicker.canKick()) {
             return;
         }
         int dir = direction >= 0 ? 1 : -1;
@@ -132,7 +143,20 @@ public class PhysicsEngine implements PhysicsSimulation {
         double distBall = Math.hypot(dxBall, dyBall);
 
         if (distBall <= KICK_RANGE) {
-            ball.setVelocity(dir * KICK_SPEED_X, KICK_SPEED_Y);
+            PowerShot powerShot = kicker.power() == Power.AURA
+                    ? kicker.country().powerShot() : null;
+            if (powerShot != null && kicker.consumePower()) {
+                ball.startPowerShot(powerShot, kicker);
+                ball.setVelocity(
+                        dir * powerShot.horizontalSpeed(),
+                        powerShot.verticalSpeed());
+                ballBody.getFixture(0).setRestitution(
+                        powerShot == PowerShot.TORNADO ? 0.95 : 0.72);
+            } else {
+                ball.clearPowerShot();
+                ball.setVelocity(dir * KICK_SPEED_X, KICK_SPEED_Y);
+                ballBody.getFixture(0).setRestitution(0.72);
+            }
             syncBallToBody(ball, ballBody);
             kicker.startKickCooldown(KICK_COOLDOWN_SECONDS);
             return;
@@ -249,15 +273,23 @@ public class PhysicsEngine implements PhysicsSimulation {
             player.setVelocity(0, player.velocityY());
             return;
         }
-        if (input.power()) {
+        if (input.power() && player.statusEffect().canKick()) {
             player.activatePower();
         }
+        if (player.statusEffect() == PlayerStatusEffect.PUSHED) {
+            return;
+        }
+        if (!player.statusEffect().canMove()) {
+            player.setVelocity(0, player.velocityY());
+            return;
+        }
         double speedMultiplier = 1.0 + 0.10 * (player.stats().speed() - 1);
-        double vx = input.horizontalDirection() * PLAYER_MOVE_SPEED * speedMultiplier;
+        double vx = input.horizontalDirection() * PLAYER_MOVE_SPEED * speedMultiplier
+                * player.statusEffect().movementMultiplier();
         double vy = player.velocityY();
 
         boolean onGround = player.grounded() || player.y() + Player.RADIUS >= Game.GROUND_Y - 2.0;
-        if (input.jump() && onGround) {
+        if (input.jump() && player.canJump() && onGround) {
             double jumpMultiplier = 1.0 + 0.10 * (player.stats().jump() - 1);
             vy = PLAYER_JUMP_SPEED * jumpMultiplier;
             player.setPosition(player.x(), Game.GROUND_Y - Player.RADIUS - 1.5);
@@ -314,7 +346,8 @@ public class PhysicsEngine implements PhysicsSimulation {
         if (y + Ball.RADIUS >= Game.GROUND_Y - 0.5) {
             y = Game.GROUND_Y - Ball.RADIUS;
             if (vy > 0) {
-                vy = -vy * 0.72;
+                double bounceMultiplier = ball.activePowerShot() == PowerShot.TORNADO ? 0.95 : 0.72;
+                vy = -vy * bounceMultiplier;
             }
             // Si el rebote vertical ya es muy pequeño, detener el rebote en el suelo
             if (Math.abs(vy) < BALL_STOP_SPEED_Y) {
@@ -338,6 +371,36 @@ public class PhysicsEngine implements PhysicsSimulation {
             } else if (ball.x() + Ball.RADIUS >= Game.WIDTH - Game.GOAL_DEPTH) {
                 game.scoreGoal(1);
             }
+        }
+    }
+
+    private void applyPowerShotImpact(Ball ball, Player first, Player second)
+            throws DopoSoccerException {
+        PowerShot shot = ball.activePowerShot();
+        Player owner = ball.powerShotOwner();
+        if (shot == null || owner == null || ball.powerEffectApplied()) {
+            return;
+        }
+
+        Player opponent = owner == first ? second : first;
+        double distance = Math.hypot(ball.x() - opponent.x(), ball.y() - opponent.y());
+        if (distance > Ball.RADIUS + Player.RADIUS) {
+            return;
+        }
+
+        ball.markPowerEffectApplied();
+        opponent.takeDamage(shot.damage());
+        if (opponent.stunned()) {
+            return;
+        }
+
+        opponent.applyStatusEffect(shot.hitEffect(), shot.durationSeconds());
+        if (shot == PowerShot.BLUE_AURA) {
+            double goalDirection = opponent.x() < Game.WIDTH / 2 ? -1.0 : 1.0;
+            opponent.setVelocity(goalDirection * 600.0, -180.0);
+        } else if (shot == PowerShot.TORNADO) {
+            double launchDirection = opponent.x() < Game.WIDTH / 2 ? -1.0 : 1.0;
+            opponent.setVelocity(launchDirection * 120.0, -560.0);
         }
     }
 

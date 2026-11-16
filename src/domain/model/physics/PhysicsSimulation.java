@@ -30,7 +30,7 @@ public interface PhysicsSimulation {
             PlayerInput firstInput,
             PlayerInput secondInput,
             double deltaSeconds
-    );
+    ) throws DopoSoccerException;
 
     /**
      * Ejecuta una patada considerando al jugador que patea,
