@@ -5,7 +5,6 @@ import domain.model.entity.Country;
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
 import domain.model.game.GameMatchConfig;
-import domain.model.game.PlayerMode;
 import domain.model.physics.PhysicsEngine;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -197,7 +196,11 @@ public class CharacterSelectionPane extends StackPane {
     private void startMatch() {
 
         try {
-            Game match = new Game(PlayerMode.PLAYER_VS_PLAYER, matchConfig.getPlayer1Character(), matchConfig.getPlayer2Character(), new PhysicsEngine());
+            Game match = new Game(
+                    matchConfig.getGameMode(),
+                    matchConfig.getPlayer1Character(),
+                    matchConfig.getPlayer2Character(),
+                    new PhysicsEngine());
             ViewNavigator.loadView(new GamePlayPane(match, matchConfig));
 
         } catch (DopoSoccerException exception) {
