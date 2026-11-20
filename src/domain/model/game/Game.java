@@ -21,9 +21,9 @@ public class Game {
     public static final double GROUND_Y = 470.0;
     public static final double GOAL_DEPTH = 48.0;
     public static final double GOAL_TOP = 310.0;
-
     private static final double KICKOFF_DELAY_SECONDS = 1.0;
-
+    private boolean finished;
+    private int winner; // 1 = Jugador1, 2= Jugador2
     private final PlayerMode playerMode;
     private final Player firstPlayer;
     private final Player secondPlayer;
@@ -110,6 +110,9 @@ public class Game {
         if (firstInput == null || secondInput == null) {
             throw new DopoSoccerException(DopoSoccerException.NULL_CONFIG);
         }
+        if (finished) {
+            return;
+        }
         physicsSimulation.update(this, firstInput, secondInput, deltaSeconds);
         double delta = Math.min(deltaSeconds, 1.0 / 30.0);
         updateKickoffDelay(delta);
@@ -124,6 +127,26 @@ public class Game {
             }
         }
     }
+    public boolean isFinished() {
+        return finished;
+    }
+
+    public int winner() {
+        return winner;
+    }
+
+    protected void finishMatch(int winner) {
+        this.finished = true;
+        this.winner = winner;
+    }
+
+    protected int compareScores() {
+        int firstGoals = firstPlayer.goals();
+        int secondGoals = secondPlayer.goals();
+
+        return Integer.compare(firstGoals, secondGoals);
+    }
+
     /**
      * Prepara el saque inicial.
      */
@@ -134,5 +157,8 @@ public class Game {
         ball.setVelocity(0, 0);
         ball.clearPowerShot();
         kickoffDelay = KICKOFF_DELAY_SECONDS;
+    }
+    public String modeDescription() {
+        return "PARTIDO LIBRE";
     }
 }
