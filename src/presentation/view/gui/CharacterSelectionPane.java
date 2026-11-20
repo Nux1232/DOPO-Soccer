@@ -437,8 +437,29 @@ public class CharacterSelectionPane extends StackPane {
 
     private void startMatch() {
         try {
-            Game match = new Game(PlayerMode.PLAYER_VS_PLAYER, matchConfig.getPlayer1Character(), matchConfig.getPlayer2Character(), new PhysicsEngine());
-            ViewNavigator.loadView(new GamePlayPane(match, matchConfig));
+            Game match;
+
+            if (matchConfig.getMatchType() == MatchType.GOALS) {
+                match = new GoalGame(
+                        matchConfig.getGameMode(),
+                        matchConfig.getPlayer1Character(),
+                        matchConfig.getPlayer2Character(),
+                        new PhysicsEngine(),
+                        matchConfig.getGoalLimit()
+                );
+            } else {
+                match = new TimeGame(
+                        matchConfig.getGameMode(),
+                        matchConfig.getPlayer1Character(),
+                        matchConfig.getPlayer2Character(),
+                        new PhysicsEngine(),
+                        matchConfig.getDurationSeconds()
+                );
+            }
+
+            ViewNavigator.loadView(
+                    new GamePlayPane(match, matchConfig)
+            );
 
         } catch (DopoSoccerException exception) {
             Alert alert = new Alert(Alert.AlertType.ERROR);
