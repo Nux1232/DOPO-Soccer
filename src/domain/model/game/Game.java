@@ -55,6 +55,7 @@ public class Game {
         this.physicsSimulation = physicsSimulation;
         this.firstPlayer = new Player(firstCountry, WIDTH / 2 - 60);
         this.secondPlayer = new Player(secondCountry, WIDTH / 2 + 60);
+        this.secondPlayer.setFacingDirection(-1);
         this.ball = new Ball(WIDTH / 2, 160);
         prepareKickoff();
     }
@@ -117,11 +118,12 @@ public class Game {
         updateKickoffDelay(delta);
         if (!kickoffDelayActive()) {
             if (firstInput.kick()) {
-                physicsSimulation.kick(firstPlayer, secondPlayer, ball, 1);
+                physicsSimulation.kick(
+                        firstPlayer, secondPlayer, ball, firstPlayer.facingDirection());
             }
             if (secondInput.kick()) {
-                physicsSimulation.kick(secondPlayer, firstPlayer, ball, -1
-                );
+                physicsSimulation.kick(
+                        secondPlayer, firstPlayer, ball, secondPlayer.facingDirection());
             }
         }
     }
