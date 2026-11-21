@@ -89,6 +89,37 @@ public final class GamePlayPane extends BorderPane {
                 previousFrame = now;
                 try {
                     engine.update(firstPlayerInput(), secondPlayerInput(), delta);
+                    if (engine.match().isFinished()) {
+                        animationTimer.stop();
+                        pressedKeys.clear();
+
+                        Game match = engine.match();
+
+                        String result;
+
+                        if (match.winner() == 0) {
+                            result = "¡EMPATE!";
+                        } else if (match.winner() == 1) {
+                            result = "¡GANA " +
+                                    match.firstPlayer().country().displayName() + "!";
+                        } else {
+                            result = "¡GANA " +
+                                    match.secondPlayer().country().displayName() + "!";
+                        }
+
+                        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                        alert.setTitle("DOPO-SOCCER");
+                        alert.setHeaderText("¡PARTIDO TERMINADO!");
+                        alert.setContentText(
+                                result + "\n\nMarcador final: " +
+                                        match.firstPlayer().goals() + " - " +
+                                        match.secondPlayer().goals()
+                        );
+                        alert.show();
+
+                        render();
+                        return;
+                    }
                 } catch (DopoSoccerException e) {
                     stop();
 
