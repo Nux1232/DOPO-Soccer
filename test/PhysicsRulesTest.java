@@ -9,7 +9,6 @@ import domain.model.physics.PowerShotImpactHandler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PhysicsRulesTest {
@@ -24,18 +23,17 @@ class PhysicsRulesTest {
     }
 
     @Test
-    void impactMotionCanBeExtendedWithoutPhysicsEngineChanges() throws Exception {
+    void impactIsDelegatedToThePowerWithoutPhysicsEngineChanges() throws Exception {
         Player owner = new Player(Country.USA, 100);
         Player opponent = new Player(Country.CAMEROON, 120);
         Ball ball = new Ball(120, 100);
         ball.startPowerShot(PowerShot.ILLUSION, owner);
         PowerShotImpactHandler handler = new PowerShotImpactHandler();
-        handler.register(PowerShot.ILLUSION, player -> player.setVelocity(321, -123));
 
         handler.apply(ball, owner, opponent);
 
-        assertEquals(321, opponent.velocityX());
-        assertEquals(-123, opponent.velocityY());
+        assertEquals(70, opponent.health());
+        assertEquals(domain.model.entity.PlayerStatusEffect.CONFUSED, opponent.statusEffect());
         assertTrue(ball.powerEffectApplied());
     }
 }

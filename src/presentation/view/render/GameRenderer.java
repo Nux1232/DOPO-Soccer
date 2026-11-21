@@ -13,7 +13,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
-import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -34,7 +34,7 @@ public final class GameRenderer {
     private static final double BAR_WIDTH = 230;
 
     private final Image backgroundImage;
-    private final Map<PowerShot, Image> powerShotImages = new EnumMap<>(PowerShot.class);
+    private final Map<PowerShot, Image> powerShotImages = new HashMap<>();
 
     public GameRenderer() {
         backgroundImage = new Image(
@@ -43,7 +43,7 @@ public final class GameRenderer {
                         "No se encontró background_match.png"
                 )
         );
-        for (PowerShot shot : PowerShot.values()) {
+        for (PowerShot shot : PowerShot.available()) {
             String path = "/resources/effects/powers/" + shot.visualAsset();
             var resource = getClass().getResource(path);
             if (resource == null) {
@@ -171,7 +171,7 @@ public final class GameRenderer {
      */
     private void drawBall(GraphicsContext graphics, Ball ball) {
         PowerShot shot = ball.activePowerShot();
-        if (shot == PowerShot.ILLUSION) {
+        if (shot != null && shot.renderCopies()) {
             double elapsed = shot.durationSeconds() - ball.powerShotTime();
             double rotation = elapsed * 1.6;
             for (int i = 0; i < 8; i++) {

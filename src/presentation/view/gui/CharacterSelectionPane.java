@@ -154,7 +154,7 @@ public class CharacterSelectionPane extends StackPane {
                         "-fx-text-fill: #c8d9eb;"
         );
         ComboBox<Country> countrySelector = new ComboBox<>();
-        countrySelector.getItems().setAll(Country.values());
+        countrySelector.getItems().setAll(Country.available());
         countrySelector.setValue(selectedCountry);
         countrySelector.setPrefWidth(285);
         countrySelector.setPrefHeight(42);
