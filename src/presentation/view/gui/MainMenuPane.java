@@ -1,10 +1,6 @@
 
 package presentation.view.gui;
 
-import domain.model.exception.DopoSoccerException;
-import domain.model.game.GameMatchConfig;
-import domain.model.game.PlayerMode;
-import presentation.view.util.ViewNavigator;
 
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
@@ -15,15 +11,16 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
+import java.util.function.Consumer;
 
 public class MainMenuPane extends StackPane {
 
     private static final String IMAGES_PATH = "/resources/Images/";
 
-    private final GameMatchConfig matchConfig;
+    private final Consumer<String> onModeSelected;
 
-    public MainMenuPane(GameMatchConfig matchConfig) {
-        this.matchConfig = matchConfig;
+    public MainMenuPane(Consumer<String> onModeSelected) {
+        this.onModeSelected = onModeSelected;
         setupUI();
     }
 
@@ -62,7 +59,7 @@ public class MainMenuPane extends StackPane {
         pvpButton.getStyleClass().add("card-button-pvp");
 
         pvpButton.setOnAction(e ->
-                handleSelectMode(PlayerMode.PLAYER_VS_PLAYER)
+                handleSelectMode("PLAYER_VS_PLAYER")
         );
 
         // Jugador vs Máquina
@@ -116,32 +113,17 @@ public class MainMenuPane extends StackPane {
         this.getChildren().addAll(bgView, contentBox);
     }
 
-    private void handleSelectMode(PlayerMode mode) {
+    private void handleSelectMode(String mode) {
 
-        matchConfig.setGameMode(mode);
-
-        ViewNavigator.loadView(
-                new CharacterSelectionPane(matchConfig)
-        );
+        onModeSelected.accept(mode);
     }
 
     private void showUnderConstruction() {
 
-        try {
-
-            throw new DopoSoccerException(
-                    DopoSoccerException.MODE_UNDER_CONSTRUCTION
-            );
-
-        } catch (DopoSoccerException exception) {
-
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-
-            alert.setTitle("DOPO-SOCCER");
-            alert.setHeaderText("Modalidad en construcción");
-            alert.setContentText(exception.getMessage());
-
-            alert.showAndWait();
-        }
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("DOPO-SOCCER");
+        alert.setHeaderText("Modalidad en construcción");
+        alert.setContentText("Esta modalidad todavía no está disponible.");
+        alert.showAndWait();
     }
 }

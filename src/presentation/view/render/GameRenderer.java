@@ -1,10 +1,8 @@
 
 package presentation.view.render;
 
-import domain.model.entity.Ball;
-import domain.model.entity.Player;
-import domain.model.entity.Power;
-import domain.model.game.Game;
+import presentation.model.GameSnapshot;
+import presentation.model.GameSnapshot.PlayerSnapshot;
 
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
@@ -13,6 +11,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -32,6 +31,7 @@ public final class GameRenderer {
     private static final double BAR_WIDTH = 230;
 
     private final Image backgroundImage;
+    private final Map<String, Image> powerShotImages = new java.util.HashMap<>();
 
     public GameRenderer() {
         backgroundImage = new Image(
@@ -40,20 +40,34 @@ public final class GameRenderer {
                         "No se encontró background_match.png"
                 )
         );
+        for (String asset : new String[]{"Ko_power.gif", "Cm_power.gif", "Ng_power.gif", "usa-illusion.gif"}) {
+            String path = "/resources/effects/powers/" + asset;
+            var resource = getClass().getResource(path);
+            if (resource == null) {
+                System.err.println("Recurso visual opcional no encontrado: " + path);
+                continue;
+            }
+            Image image = new Image(resource.toExternalForm(), false);
+            if (image.isError()) {
+                throw new IllegalStateException("No se pudo cargar el recurso visual: " + path,
+                        image.getException());
+            }
+            powerShotImages.put(asset, image);
+        }
     }
 
     /**
      * Dibuja todos los elementos del partido.
      */
-    public void render(GraphicsContext graphics, Game match) {
+    public void render(GraphicsContext graphics, GameSnapshot match) {
 
-        drawField(graphics);
+        drawField(graphics, match);
 
         // Los arcos ya están incluidos en el fondo.
-        drawPlayer(graphics, match.firstPlayer());
-        drawPlayer(graphics, match.secondPlayer());
+        drawPlayer(graphics, match.firstPlayer(), match.groundY());
+        drawPlayer(graphics, match.secondPlayer(), match.groundY());
 
-        drawBall(graphics, match.ball());
+        drawBall(graphics, match);
 
         // El HUD siempre queda encima del resto.
         drawScoreboard(graphics, match);
@@ -63,55 +77,52 @@ public final class GameRenderer {
      * Dibuja el estadio y alinea el césped
      * con la coordenada lógica del suelo.
      */
-    private void drawField(GraphicsContext graphics) {
+    private void drawField(GraphicsContext graphics, GameSnapshot match) {
 
         graphics.setFill(Color.web("#061b35"));
         graphics.fillRect(
                 0,
                 0,
-                Game.WIDTH,
-                Game.HEIGHT
+                match.width(),
+                match.height()
         );
 
         graphics.drawImage(
                 backgroundImage,
                 0,
                 56,
-                Game.WIDTH,
-                Game.HEIGHT
+                match.width(),
+                match.height()
         );
     }
 
     /**
      * Dibuja un jugador.
      */
-    private void drawPlayer(GraphicsContext graphics, Player player) {
+    private void drawPlayer(GraphicsContext graphics, PlayerSnapshot player, double groundY) {
 
         double x = player.x();
         double y = player.y();
-
-        Color jersey = Color.web(player.country().color());
-
-        // Aura del poder.
-        if (player.power() != Power.NONE) {
-            graphics.setFill(Color.rgb(255, 227, 71, 0.32));
-            graphics.fillOval(x - 39, y - 44, 78, 78);
-        }
+        Color jersey = Color.web(player.jerseyColor());
 
         // Sombra.
         graphics.setFill(Color.rgb(35, 44, 54, 0.25));
         graphics.fillOval(
-                x - 28,
-                Game.GROUND_Y - 5,
-                56,
+                x - PlayerVisualMetrics.WIDTH / 2,
+                groundY - 5,
+                PlayerVisualMetrics.WIDTH,
                 10
         );
+
+        graphics.save();
+        graphics.translate(x, y);
+        graphics.scale(PlayerVisualMetrics.scaleX(), PlayerVisualMetrics.scaleY());
 
         // Camiseta.
         graphics.setFill(jersey);
         graphics.fillRoundRect(
-                x - 21,
-                y - 9,
+                -21,
+                -9,
                 42,
                 30,
                 12,
@@ -121,64 +132,90 @@ public final class GameRenderer {
         // Cabeza.
         graphics.setFill(Color.web("#f4c49a"));
         graphics.fillOval(
-                x - Player.RADIUS,
-                y - Player.RADIUS * 2,
-                Player.RADIUS * 2,
-                Player.RADIUS * 2
+                -25,
+                -PlayerVisualMetrics.TOP_OFFSET,
+                25 * 2,
+                25 * 2
         );
 
-        // Ojo.
+        // El ojo y la pupila se orientan hacia el lado al que apunta la patada.
+        int facing = player.facingDirection();
+        double eyeX = facing > 0 ? 7 : -16;
+        graphics.setFill(Color.WHITE);
+        graphics.fillOval(eyeX, -34, 10, 8);
         graphics.setFill(Color.web("#263238"));
-        graphics.fillOval(
-                x + (x < Game.WIDTH / 2 ? 5 : -11),
-                y - 32,
-                6,
-                6
-        );
+        graphics.fillOval(eyeX + (facing > 0 ? 5 : 1), -33, 4, 6);
 
-        // Piernas.
         graphics.setStroke(Color.rgb(31, 45, 54, 0.6));
-        graphics.setLineWidth(2);
-
-        graphics.strokeLine(
-                x - 13, y + 20,
-                x - 16, y + 29
-        );
-
-        graphics.strokeLine(
-                x + 13, y + 20,
-                x + 16, y + 29
-        );
+        if (player.kicking()) {
+            double direction = facing;
+            graphics.setLineWidth(2);
+            graphics.strokeLine(-13 * direction, 20, -16 * direction, 29);
+            graphics.setStroke(Color.web("#263238"));
+            graphics.setLineWidth(4);
+            graphics.strokeLine(13 * direction, 18, 24 * direction, 24);
+            graphics.strokeLine(24 * direction, 24, 34 * direction, 16);
+        } else {
+            graphics.setLineWidth(2);
+            graphics.strokeLine(-13, 20, -16, 29);
+            graphics.strokeLine(13, 20, 16, 29);
+        }
+        graphics.restore();
     }
 
     /**
      * Dibuja el balón.
      */
-    private void drawBall(GraphicsContext graphics, Ball ball) {
+    private void drawBall(GraphicsContext graphics, GameSnapshot match) {
+        String shot = match.activePowerShot();
+        if ("ILLUSION".equals(shot)) {
+            double elapsed = match.powerShotElapsed();
+            double rotation = elapsed * 1.6;
+            for (int i = 0; i < 8; i++) {
+                double angle = rotation + Math.PI * 2 * i / 8;
+                double x = match.ballX() + Math.cos(angle) * 38;
+                double y = match.ballY() + Math.sin(angle) * 26;
+                drawBallAt(graphics, x, y, match);
+            }
+            return;
+        }
+        drawBallAt(graphics, match.ballX(), match.ballY(), match);
+    }
 
+    private void drawBallAt(GraphicsContext graphics, double x, double y, GameSnapshot match) {
         graphics.setFill(Color.rgb(25, 38, 48, 0.2));
 
         graphics.fillOval(
-                ball.x() - Ball.RADIUS,
-                Game.GROUND_Y - 3,
-                Ball.RADIUS * 2,
+                x - match.ballRadius(),
+                match.groundY() - 3,
+                match.ballRadius() * 2,
                 7
         );
+
+        if (match.activePowerShot() != null) {
+            Image effectImage = powerShotImages.get(match.powerShotAsset());
+            if (effectImage != null) {
+                graphics.drawImage(effectImage, x - 40, y - 30, 80, 60);
+            } else {
+                graphics.setFill(Color.web(match.powerShotColor(), 0.42));
+                graphics.fillOval(x - 25, y - 25, 50, 50);
+            }
+        }
 
         graphics.setFill(Color.WHITE);
 
         graphics.fillOval(
-                ball.x() - Ball.RADIUS,
-                ball.y() - Ball.RADIUS,
-                Ball.RADIUS * 2,
-                Ball.RADIUS * 2
+                x - match.ballRadius(),
+                y - match.ballRadius(),
+                match.ballRadius() * 2,
+                match.ballRadius() * 2
         );
 
         graphics.setFill(Color.web("#242a31"));
 
         graphics.fillOval(
-                ball.x() - 5,
-                ball.y() - 5,
+                x - 5,
+                y - 5,
                 10,
                 10
         );
@@ -187,9 +224,9 @@ public final class GameRenderer {
     /**
      * Marcador central y barras de ambos jugadores.
      */
-    private void drawScoreboard(GraphicsContext graphics, Game match) {
+    private void drawScoreboard(GraphicsContext graphics, GameSnapshot match) {
 
-        double centerX = Game.WIDTH / 2;
+        double centerX = match.width() / 2;
 
         double panelX = centerX - HUD_WIDTH / 2;
         double panelY = 12;
@@ -215,14 +252,14 @@ public final class GameRenderer {
         graphics.setTextAlign(TextAlignment.CENTER);
 
         graphics.fillText(
-                match.firstPlayer().country().displayName(),
+                match.firstPlayer().countryName(),
                 centerX - 88,
                 45,
                 165
         );
 
         graphics.fillText(
-                match.secondPlayer().country().displayName(),
+                match.secondPlayer().countryName(),
                 centerX + 88,
                 45,
                 165
@@ -263,7 +300,7 @@ public final class GameRenderer {
         drawPlayerBars(
                 graphics,
                 match.secondPlayer(),
-                Game.WIDTH - 28 - BAR_WIDTH,
+                match.width() - 28 - BAR_WIDTH,
                 26
         );
 
@@ -275,7 +312,7 @@ public final class GameRenderer {
      */
     private void drawPlayerBars(
             GraphicsContext graphics,
-            Player player,
+            PlayerSnapshot player,
             double x,
             double y
     ) {
@@ -333,7 +370,7 @@ public final class GameRenderer {
         );
 
         // Carga actual.
-        double powerRatio = Math.max(0, Math.min(1, player.powerCharge() / Player.MAX_POWER_CHARGE));
+        double powerRatio = Math.max(0, Math.min(1, player.powerCharge() / 100.0));
         graphics.setFill(Color.web("#f3d54b"));
         graphics.fillRoundRect(
                 x,

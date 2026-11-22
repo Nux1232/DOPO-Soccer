@@ -1,5 +1,6 @@
 package domain.model.entity;
 import domain.model.exception.DopoSoccerException;
+import domain.model.entity.service.PlayerProgression;
 
 /**
  * Estadísticas de un jugador: velocidad, patada, salto y supervivencia,
@@ -98,7 +99,7 @@ public final class PlayerStats {
             throw new IllegalStateException(DopoSoccerException.INSUFFICIENT_POINTS);
         }
         points -= nextUpgradeCost;
-        nextUpgradeCost *= 2;
-        return currentValue + 1;
+        nextUpgradeCost = PlayerProgression.nextCost(nextUpgradeCost);
+        return PlayerProgression.nextLevel(currentValue, MAX_LEVEL);
     }
 }

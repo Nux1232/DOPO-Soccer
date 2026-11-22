@@ -44,7 +44,7 @@
         <resources>
             <resource>
                 <directory>${project.basedir}/src/resources</directory>
-                <targetPath>resources</targetPath>
+                <targetPath>src/resources</targetPath>
                 <filtering>false</filtering>
             </resource>
         </resources>

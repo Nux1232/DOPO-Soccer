@@ -1,12 +1,5 @@
 package presentation.view.gui;
-import domain.model.game.MatchType;
-import domain.model.entity.Country;
-import domain.model.exception.DopoSoccerException;
-import domain.model.game.Game;
-import domain.model.game.GoalGame;
-import domain.model.game.TimeGame;
-import domain.model.game.GameMatchConfig;
-import domain.model.physics.PhysicsEngine;
+import presentation.model.MatchSetup;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
@@ -21,8 +14,8 @@ import javafx.scene.layout.VBox;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.control.ScrollPane;
-import presentation.view.util.ViewNavigator;
 import javafx.util.StringConverter;
+import java.util.function.Consumer;
 /**
  * Pantalla de selección de personajes.
  *
@@ -34,10 +27,14 @@ public class CharacterSelectionPane extends StackPane {
     private static final String BACKGROUND_PATH =
             "/resources/Images/background_selection.png";
 
-    private final GameMatchConfig matchConfig;
+    private final MatchSetup matchConfig;
+    private final Consumer<MatchSetup> onStartMatch;
+    private final Runnable onBack;
 
-    public CharacterSelectionPane(GameMatchConfig matchConfig) {
+    public CharacterSelectionPane(MatchSetup matchConfig, Consumer<MatchSetup> onStartMatch, Runnable onBack) {
         this.matchConfig = matchConfig;
+        this.onStartMatch = onStartMatch;
+        this.onBack = onBack;
         setupUI();
     }
 
@@ -72,15 +69,15 @@ public class CharacterSelectionPane extends StackPane {
         matchTypeLabel.setMinHeight(30);
         matchTypeLabel.setAlignment(Pos.CENTER);
 
-        ComboBox<MatchType> matchTypeSelector = new ComboBox<>();
-        matchTypeSelector.getItems().setAll(MatchType.values());
-        matchTypeSelector.setValue(matchConfig.getMatchType());
+        ComboBox<MatchSetup.Type> matchTypeSelector = new ComboBox<>();
+        matchTypeSelector.getItems().setAll(MatchSetup.Type.values());
+        matchTypeSelector.setValue(matchConfig.type());
         matchTypeSelector.setPrefWidth(190);
         matchTypeSelector.setPrefHeight(38);
 
         matchTypeSelector.setConverter(new StringConverter<>() {
             @Override
-            public String toString(MatchType type) {
+            public String toString(MatchSetup.Type type) {
                 if (type == null) return "";
                 return switch (type) {
                     case GOALS -> "GOLES";
@@ -89,13 +86,13 @@ public class CharacterSelectionPane extends StackPane {
             }
 
             @Override
-            public MatchType fromString(String value) {
+            public MatchSetup.Type fromString(String value) {
                 return null;
             }
         });
 
 
-        TextField goalsSelector = new TextField(String.valueOf(matchConfig.getGoalLimit()));
+        TextField goalsSelector = new TextField(String.valueOf(matchConfig.goalLimit()));
         goalsSelector.setPrefWidth(110);
         goalsSelector.setPrefHeight(38);
         goalsSelector.setPromptText("Ej. 10");
@@ -107,15 +104,15 @@ public class CharacterSelectionPane extends StackPane {
         goalsSelector.textProperty().addListener((obs, oldValue, newValue) -> {
             if (!newValue.isBlank()) {
                 try {
-                    matchConfig.setGoalLimit(Integer.parseInt(newValue));
-                } catch (DopoSoccerException ignored) {
+                    matchConfig.goalLimit(Integer.parseInt(newValue));
+                } catch (NumberFormatException ignored) {
                     // Se conserva el último valor válido.
                 }
             }
         });
 
         TextField timeSelector = new TextField(
-                String.valueOf(matchConfig.getDurationSeconds() / 60)
+                String.valueOf(matchConfig.durationSeconds() / 60)
         );
         timeSelector.setPrefWidth(110);
         timeSelector.setPrefHeight(38);
@@ -128,10 +125,8 @@ public class CharacterSelectionPane extends StackPane {
         timeSelector.textProperty().addListener((obs, oldValue, newValue) -> {
             if (!newValue.isBlank()) {
                 try {
-                    matchConfig.setDurationSeconds(
-                            Math.multiplyExact(Integer.parseInt(newValue), 60)
-                    );
-                } catch (DopoSoccerException ignored) {
+                    matchConfig.durationSeconds(Math.multiplyExact(Integer.parseInt(newValue), 60));
+                } catch (NumberFormatException ignored) {
                     // El valor se valida automaticamente
                 }
             }
@@ -153,7 +148,7 @@ public class CharacterSelectionPane extends StackPane {
 
         // Mostrar únicamente el parámetro correspondiente
         Runnable updateMatchOptions = () -> {
-            boolean goalMode = matchConfig.getMatchType() == MatchType.GOALS;
+            boolean goalMode = matchConfig.type() == MatchSetup.Type.GOALS;
 
             goalsBox.setVisible(goalMode);
             goalsBox.setManaged(goalMode);
@@ -163,10 +158,10 @@ public class CharacterSelectionPane extends StackPane {
         };
 
         matchTypeSelector.setOnAction(event -> {
-            MatchType selected = matchTypeSelector.getValue();
+            MatchSetup.Type selected = matchTypeSelector.getValue();
 
             if (selected != null) {
-                matchConfig.setMatchType(selected);
+                matchConfig.type(selected);
                 updateMatchOptions.run();
             }
         });
@@ -232,10 +227,10 @@ public class CharacterSelectionPane extends StackPane {
 
 
 
-        VBox firstCard = createPlayerCard("JUGADOR 1", matchConfig.getPlayer1Character(), true
+        VBox firstCard = createPlayerCard("JUGADOR 1", matchConfig.firstCountry(), true
         );
 
-        VBox secondCard = createPlayerCard("JUGADOR 2", matchConfig.getPlayer2Character(), false
+        VBox secondCard = createPlayerCard("JUGADOR 2", matchConfig.secondCountry(), false
         );
 
         HBox playersContainer = new HBox(22, firstCard, secondCard);
@@ -341,9 +336,7 @@ public class CharacterSelectionPane extends StackPane {
                         "-fx-cursor: hand;"
         );
 
-        backButton.setOnAction(event ->
-                ViewNavigator.loadView(new MainMenuPane(matchConfig))
-        );
+        backButton.setOnAction(event -> onBack.run());
 
         VBox content = new VBox(
                 10, title,
@@ -379,7 +372,7 @@ public class CharacterSelectionPane extends StackPane {
 
     }
 
-    private VBox createPlayerCard(String heading, Country selectedCountry, boolean firstPlayer) {
+    private VBox createPlayerCard(String heading, MatchSetup.Country selectedCountry, boolean firstPlayer) {
         Label playerLabel = new Label(heading);
         playerLabel.setStyle(
                 "-fx-font-size: 19px;" +
@@ -393,8 +386,8 @@ public class CharacterSelectionPane extends StackPane {
                 "-fx-font-size: 12px;" +
                         "-fx-text-fill: #c8d9eb;"
         );
-        ComboBox<Country> countrySelector = new ComboBox<>();
-        countrySelector.getItems().setAll(Country.values());
+        ComboBox<MatchSetup.Country> countrySelector = new ComboBox<>();
+        countrySelector.getItems().setAll(MatchSetup.Country.values());
         countrySelector.setValue(selectedCountry);
         countrySelector.setPrefWidth(285);
         countrySelector.setPrefHeight(42);
@@ -409,9 +402,9 @@ public class CharacterSelectionPane extends StackPane {
                         return;
                     }
                     if (firstPlayer) {
-                        matchConfig.setPlayer1Character(newValue);
+                        matchConfig.firstCountry(newValue);
                     } else {
-                        matchConfig.setPlayer2Character(newValue);
+                        matchConfig.secondCountry(newValue);
                     }
                 }
         );
@@ -435,38 +428,7 @@ public class CharacterSelectionPane extends StackPane {
 
 
     private void startMatch() {
-        try {
-            Game match;
-
-            if (matchConfig.getMatchType() == MatchType.GOALS) {
-                match = new GoalGame(
-                        matchConfig.getGameMode(),
-                        matchConfig.getPlayer1Character(),
-                        matchConfig.getPlayer2Character(),
-                        new PhysicsEngine(),
-                        matchConfig.getGoalLimit()
-                );
-            } else {
-                match = new TimeGame(
-                        matchConfig.getGameMode(),
-                        matchConfig.getPlayer1Character(),
-                        matchConfig.getPlayer2Character(),
-                        new PhysicsEngine(),
-                        matchConfig.getDurationSeconds()
-                );
-            }
-
-            ViewNavigator.loadView(
-                    new GamePlayPane(match, matchConfig)
-            );
-
-        } catch (DopoSoccerException exception) {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("DOPO-SOCCER");
-            alert.setHeaderText("No se pudo iniciar el partido");
-            alert.setContentText(exception.getMessage());
-            alert.showAndWait();
-        }
+        onStartMatch.accept(matchConfig);
     }
 
 }

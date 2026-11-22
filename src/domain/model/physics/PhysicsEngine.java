@@ -2,6 +2,8 @@ package domain.model.physics;
 
 import domain.model.entity.Ball;
 import domain.model.entity.Player;
+import domain.model.entity.Power;
+import domain.model.entity.PowerShot;
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
 import domain.model.game.PlayerInput;
@@ -21,42 +23,54 @@ import org.dyn4j.world.World;
  */
 public class PhysicsEngine implements PhysicsSimulation {
 
-    /** Escala de conversión: 100 píxeles equivalen a 1 metro en Dyn4j. */
-    private static final double PIXELS_PER_METER = 100.0;
-
-    /** Gravedad vertical arcade hacia abajo (px/s^2 -> 14.0 m/s^2 en Dyn4j). */
-    private static final double GRAVITY_Y_METERS = 14.0;
-
-    /** Velocidad horizontal base de los jugadores (px/s). */
-    private static final double PLAYER_MOVE_SPEED = 280.0;
-
-    /** Velocidad vertical de salto de los jugadores (px/s, negativa = hacia arriba). */
-    private static final double PLAYER_JUMP_SPEED = -560.0;
-
-    /** Alcance máximo para patear el balón (en píxeles). */
-    private static final double KICK_RANGE = Player.RADIUS + Ball.RADIUS + 30.0;
-
-    /** Velocidades que imprime la patada al balón (px/s) y tiempo de espera (s). */
-    private static final double KICK_SPEED_X = 560.0;
-    private static final double KICK_SPEED_Y = -420.0;
-    private static final double KICK_COOLDOWN_SECONDS = 0.42;
-
-    /** Umbral mínimo de velocidad (px/s) debajo del cual el balón se detiene en el suelo. */
-    private static final double BALL_STOP_SPEED_X = 8.0;
-    private static final double BALL_STOP_SPEED_Y = 22.0;
+    private static PhysicsConfig config;
+    private final double kickRange;
 
     /** Mundo físico de Dyn4j y cuerpos dinámicos. */
     private final World<Body> world;
     private final Body ballBody;
     private final Body firstPlayerBody;
     private final Body secondPlayerBody;
+    private final PlayerInputHandler inputHandler;
+    private final GoalDetector goalDetector;
+    private final PowerShotImpactHandler powerShotImpactHandler;
 
     /**
      * Crea el mundo de Dyn4j con límites estáticos y cuerpos dinámicos.
      */
     public PhysicsEngine() {
+        this(PhysicsConfig.standard(), new PlayerInputHandler(), GoalDetector.standardField(),
+                new PowerShotImpactHandler());
+    }
+
+    public PhysicsEngine(PhysicsConfig config) {
+        this(config, new PlayerInputHandler(), GoalDetector.standardField(),
+                new PowerShotImpactHandler());
+    }
+
+    /**
+     * Crea un motor cuyas reglas de control, gol e impacto pueden sustituirse
+     * sin alterar la integración física de Dyn4j.
+     */
+    public PhysicsEngine(
+            PlayerInputHandler inputHandler,
+            GoalDetector goalDetector,
+            PowerShotImpactHandler powerShotImpactHandler) {
+        this(PhysicsConfig.standard(), inputHandler, goalDetector, powerShotImpactHandler);
+    }
+
+    public PhysicsEngine(PhysicsConfig config, PlayerInputHandler inputHandler,
+            GoalDetector goalDetector, PowerShotImpactHandler powerShotImpactHandler) {
+        if (config == null || inputHandler == null || goalDetector == null || powerShotImpactHandler == null) {
+            throw new IllegalArgumentException("Las dependencias del motor no pueden ser null");
+        }
+        this.config = config;
+        this.kickRange = Player.RADIUS + Ball.RADIUS + config.kickRangeBonus();
+        this.inputHandler = inputHandler;
+        this.goalDetector = goalDetector;
+        this.powerShotImpactHandler = powerShotImpactHandler;
         this.world = new World<>();
-        this.world.setGravity(new Vector2(0, GRAVITY_Y_METERS));
+        this.world.setGravity(new Vector2(0, config.gravityY()));
 
         createStaticBoundaries();
         this.ballBody = createBallBody();
@@ -72,8 +86,12 @@ public class PhysicsEngine implements PhysicsSimulation {
      * Avanza la simulación física un cuadro usando Dyn4j.
      */
     @Override
-    public void update(Game game, PlayerInput firstInput, PlayerInput secondInput, double deltaSeconds) {
-        double dt = Math.min(deltaSeconds, 1.0 / 30.0);
+    public void update(
+            Game game,
+            PlayerInput firstInput,
+            PlayerInput secondInput,
+            double deltaSeconds) throws DopoSoccerException {
+        double dt = Math.min(deltaSeconds, config.maxStepSeconds());
         if (dt <= 0) {
             return;
         }
@@ -85,10 +103,13 @@ public class PhysicsEngine implements PhysicsSimulation {
 
         first.tick(dt);
         second.tick(dt);
+        ball.tickPowerShot(dt);
+        ballBody.getFixture(0).setRestitution(
+                ball.activePowerShot() == PowerShot.TORNADO ? 0.95 : 0.72);
 
         // 1. Aplicar entradas de control a los jugadores
-        applyPlayerInput(first, firstInput, kickoffLocked);
-        applyPlayerInput(second, secondInput, kickoffLocked);
+        inputHandler.apply(first, firstInput, kickoffLocked);
+        inputHandler.apply(second, secondInput, kickoffLocked);
 
         // 2. Sincronizar estado del dominio -> cuerpos de Dyn4j
         syncPlayerToBody(first, firstPlayerBody);
@@ -102,9 +123,10 @@ public class PhysicsEngine implements PhysicsSimulation {
         syncBodyToPlayer(firstPlayerBody, first, kickoffLocked);
         syncBodyToPlayer(secondPlayerBody, second, kickoffLocked);
         syncBodyToBall(ballBody, ball);
+        powerShotImpactHandler.apply(ball, first, second);
 
         // 5. Verificar si se anotó un gol
-        scoreIfGoal(game);
+        goalDetector.scoringPlayer(ball).ifPresent(game::scoreGoal);
     }
 
     /**
@@ -123,18 +145,33 @@ public class PhysicsEngine implements PhysicsSimulation {
      */
     @Override
     public void kick(Player kicker, Player opponent, Ball ball, int direction) throws DopoSoccerException {
-        if (kicker.kickCooldown() > 0 || kicker.stunned()) {
+        if (kicker.kickCooldown() > 0 || !kicker.canKick()) {
             return;
         }
         int dir = direction >= 0 ? 1 : -1;
+        kicker.setFacingDirection(dir);
         double dxBall = ball.x() - kicker.x();
         double dyBall = ball.y() - kicker.y();
         double distBall = Math.hypot(dxBall, dyBall);
 
-        if (distBall <= KICK_RANGE) {
-            ball.setVelocity(dir * KICK_SPEED_X, KICK_SPEED_Y);
+        if (distBall <= kickRange) {
+            PowerShot powerShot = kicker.power() == Power.AURA
+                    ? kicker.country().powerShot() : null;
+            if (powerShot != null && kicker.consumePower()) {
+                ball.startPowerShot(powerShot, kicker);
+                ball.setVelocity(
+                        dir * powerShot.horizontalSpeed(),
+                        powerShot.verticalSpeed());
+                ballBody.getFixture(0).setRestitution(
+                        powerShot == PowerShot.TORNADO ? 0.95 : 0.72);
+            } else {
+                ball.clearPowerShot();
+                ball.setVelocity(dir * config.kickSpeedX(), config.kickSpeedY());
+                ballBody.getFixture(0).setRestitution(0.72);
+            }
             syncBallToBody(ball, ballBody);
-            kicker.startKickCooldown(KICK_COOLDOWN_SECONDS);
+            kicker.startKickCooldown(config.kickCooldownSeconds());
+            kicker.startKickAnimation();
             return;
         }
 
@@ -143,9 +180,10 @@ public class PhysicsEngine implements PhysicsSimulation {
             double dyOpp = opponent.y() - kicker.y();
             double distOpp = Math.hypot(dxOpp, dyOpp);
             boolean facingOpponent = (dir > 0 && dxOpp >= -Player.RADIUS) || (dir < 0 && dxOpp <= Player.RADIUS);
-            if (distOpp <= KICK_RANGE + Player.RADIUS * 0.5 && facingOpponent) {
+            if (distOpp <= kickRange + Player.RADIUS * 0.5 && facingOpponent) {
                 opponent.takeDamage(kicker.kickDamage());
-                kicker.startKickCooldown(KICK_COOLDOWN_SECONDS);
+                kicker.startKickCooldown(config.kickCooldownSeconds());
+                kicker.startKickAnimation();
             }
         }
     }
@@ -244,28 +282,6 @@ public class PhysicsEngine implements PhysicsSimulation {
         return body;
     }
 
-    private void applyPlayerInput(Player player, PlayerInput input, boolean kickoffLocked) {
-        if (kickoffLocked || player.stunned()) {
-            player.setVelocity(0, player.velocityY());
-            return;
-        }
-        if (input.power()) {
-            player.activatePower();
-        }
-        double speedMultiplier = 1.0 + 0.10 * (player.stats().speed() - 1);
-        double vx = input.horizontalDirection() * PLAYER_MOVE_SPEED * speedMultiplier;
-        double vy = player.velocityY();
-
-        boolean onGround = player.grounded() || player.y() + Player.RADIUS >= Game.GROUND_Y - 2.0;
-        if (input.jump() && onGround) {
-            double jumpMultiplier = 1.0 + 0.10 * (player.stats().jump() - 1);
-            vy = PLAYER_JUMP_SPEED * jumpMultiplier;
-            player.setPosition(player.x(), Game.GROUND_Y - Player.RADIUS - 1.5);
-            player.setGrounded(false);
-        }
-        player.setVelocity(vx, vy);
-    }
-
     private void syncPlayerToBody(Player player, Body body) {
         body.getTransform().setTranslation(toMeters(player.x()), toMeters(player.y()));
         body.setLinearVelocity(toMeters(player.velocityX()), toMeters(player.velocityY()));
@@ -314,14 +330,15 @@ public class PhysicsEngine implements PhysicsSimulation {
         if (y + Ball.RADIUS >= Game.GROUND_Y - 0.5) {
             y = Game.GROUND_Y - Ball.RADIUS;
             if (vy > 0) {
-                vy = -vy * 0.72;
+                double bounceMultiplier = ball.activePowerShot() == PowerShot.TORNADO ? 0.95 : 0.72;
+                vy = -vy * bounceMultiplier;
             }
             // Si el rebote vertical ya es muy pequeño, detener el rebote en el suelo
-            if (Math.abs(vy) < BALL_STOP_SPEED_Y) {
+            if (Math.abs(vy) < config.ballStopSpeedY()) {
                 vy = 0.0;
                 // Fricción de rodadura sobre el césped para que el balón se detenga
                 vx *= 0.94;
-                if (Math.abs(vx) < BALL_STOP_SPEED_X) {
+                if (Math.abs(vx) < config.ballStopSpeedX()) {
                     vx = 0.0;
                 }
             }
@@ -330,23 +347,12 @@ public class PhysicsEngine implements PhysicsSimulation {
         ball.setVelocity(vx, vy);
     }
 
-    private void scoreIfGoal(Game game) {
-        Ball ball = game.ball();
-        if (ball.y() >= Game.GOAL_TOP && ball.y() <= Game.GROUND_Y) {
-            if (ball.x() - Ball.RADIUS <= Game.GOAL_DEPTH) {
-                game.scoreGoal(2);
-            } else if (ball.x() + Ball.RADIUS >= Game.WIDTH - Game.GOAL_DEPTH) {
-                game.scoreGoal(1);
-            }
-        }
-    }
-
     private static double toMeters(double pixels) {
-        return pixels / PIXELS_PER_METER;
+        return pixels / config.pixelsPerMeter();
     }
 
     private static double toPixels(double meters) {
-        return meters * PIXELS_PER_METER;
+        return meters * config.pixelsPerMeter();
     }
 
     private static double clamp(double value, double min, double max) {

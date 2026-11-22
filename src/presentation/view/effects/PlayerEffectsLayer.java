@@ -1,98 +1,102 @@
-
 package presentation.view.effects;
 
-import domain.model.entity.Player;
-import domain.model.entity.Power;
+import presentation.model.GameSnapshot.PlayerSnapshot;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
+import presentation.view.render.PlayerVisualMetrics;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Predicate;
 
 public final class PlayerEffectsLayer extends Pane {
+    private static final List<EffectStyle> EFFECT_STYLES = List.of(
+            new EffectStyle("/resources/effects/chakra-energy-charge.gif", 2.4, 1.9,
+                    PlayerVisualMetrics.CENTER_OFFSET_Y, PlayerSnapshot::auraActive, true),
+            new EffectStyle("/resources/effects/stun-stars.gif", 1.7, 0.9,
+                    -PlayerVisualMetrics.TOP_OFFSET - PlayerVisualMetrics.HEIGHT * 0.15,
+                    PlayerSnapshot::stunned, true),
+            new EffectStyle("/resources/effects/powers/pushed.gif", 1.9, 1.8,
+                    PlayerVisualMetrics.CENTER_OFFSET_Y,
+                    player -> "PUSHED".equals(player.statusEffect()), false),
+            new EffectStyle("/resources/effects/powers/electrified.gif", 1.7, 1.7,
+                    PlayerVisualMetrics.CENTER_OFFSET_Y,
+                    player -> "ELECTRIFIED".equals(player.statusEffect()), false),
+            new EffectStyle("/resources/effects/powers/unconscious.gif", 1.7, 0.9,
+                    -PlayerVisualMetrics.TOP_OFFSET - PlayerVisualMetrics.HEIGHT * 0.15,
+                    player -> "UNCONSCIOUS".equals(player.statusEffect()), false),
+            new EffectStyle("/resources/effects/powers/confused.gif", 1.7, 0.9,
+                    -PlayerVisualMetrics.TOP_OFFSET - PlayerVisualMetrics.HEIGHT * 0.15,
+                    player -> "CONFUSED".equals(player.statusEffect()), false));
 
-    private static final double AURA_SIZE = 145;
-    private static final double STUN_SIZE = 95;
-
-    private final ImageView firstAura;
-    private final ImageView secondAura;
-    private final ImageView firstStun;
-    private final ImageView secondStun;
+    private final PlayerEffects firstEffects;
+    private final PlayerEffects secondEffects;
+    private final Set<String> missingOptionalResources = new HashSet<>();
 
     public PlayerEffectsLayer() {
-        firstAura = createGif("/resources/effects/chakra-energy-charge.gif",
-                AURA_SIZE, AURA_SIZE);
-        secondAura = createGif("/resources/effects/chakra-energy-charge.gif",
-                AURA_SIZE, AURA_SIZE);
-        firstStun = createGif("/resources/effects/stun-stars.gif",
-                STUN_SIZE, STUN_SIZE);
-        secondStun = createGif("/resources/effects/stun-stars.gif",
-                STUN_SIZE, STUN_SIZE);
-        getChildren().addAll(firstAura, secondAura, firstStun, secondStun);
+        firstEffects = createPlayerEffects();
+        secondEffects = createPlayerEffects();
+        getChildren().addAll(firstEffects.views());
+        getChildren().addAll(secondEffects.views());
         setMouseTransparent(true);
         setPickOnBounds(false);
     }
 
-    private ImageView createGif(String resourcePath, double width, double height) {
-        var resource = getClass().getResource(resourcePath);
+    private PlayerEffects createPlayerEffects() {
+        List<EffectView> effects = EFFECT_STYLES.stream()
+                .map(style -> new EffectView(style, createEffect(style)))
+                .filter(effect -> effect.view() != null).toList();
+        return new PlayerEffects(effects);
+    }
 
+    private ImageView createEffect(EffectStyle style) {
+        var resource = getClass().getResource(style.resourcePath());
         if (resource == null) {
-            throw new IllegalStateException("No se encontró el GIF: " + resourcePath);
+            if (!style.required() && missingOptionalResources.add(style.resourcePath()))
+                System.err.println("Recurso visual opcional no encontrado: " + style.resourcePath());
+            if (style.required()) throw new IllegalStateException("No se encontró el GIF: " + style.resourcePath());
+            return null;
         }
         Image image = new Image(resource.toExternalForm());
-        if (image.isError()) {
-            throw new IllegalStateException("No se pudo cargar el GIF: " + resourcePath, image.getException());
-        }
-
+        if (image.isError()) throw new IllegalStateException("No se pudo cargar el GIF: " + style.resourcePath(), image.getException());
         ImageView view = new ImageView(image);
-        view.setFitWidth(width);
-        view.setFitHeight(height);
-        view.setPreserveRatio(true);
-        view.setSmooth(true);
-        view.setVisible(false);
-        view.setMouseTransparent(true);
-
+        view.setPreserveRatio(true); view.setSmooth(true); view.setVisible(false); view.setMouseTransparent(true);
         return view;
     }
 
-    public void update(
-            Player firstPlayer,
-            Player secondPlayer,
-            double scale,
-            double offsetX,
-            double offsetY) {
-
-        updatePlayerEffects(firstPlayer, firstAura, firstStun, scale, offsetX, offsetY);
-        updatePlayerEffects(secondPlayer, secondAura, secondStun, scale, offsetX, offsetY);
+    public void update(PlayerSnapshot first, PlayerSnapshot second, double scale, double offsetX, double offsetY) {
+        updatePlayerEffects(first, firstEffects, scale, offsetX, offsetY);
+        updatePlayerEffects(second, secondEffects, scale, offsetX, offsetY);
     }
 
-    private void updatePlayerEffects(
-            Player player,
-            ImageView aura,
-            ImageView stun,
-            double scale,
-            double offsetX,
-            double offsetY) {
+    private void updatePlayerEffects(PlayerSnapshot player, PlayerEffects effects, double scale, double offsetX, double offsetY) {
         double screenX = offsetX + player.x() * scale;
         double screenY = offsetY + player.y() * scale;
+        for (EffectView effect : effects.effects())
+            updateEffect(effect.view(), effect.style(), effect.style().activeWhen().test(player), screenX, screenY, scale);
+    }
 
-        boolean auraActive = player.power() == Power.AURA;
-        aura.setVisible(auraActive);
+    private void updateEffect(ImageView view, EffectStyle style, boolean visible, double screenX, double screenY, double scale) {
+        view.setVisible(visible);
+        if (!visible) return;
+        double targetWidth = PlayerVisualMetrics.WIDTH * style.widthMultiplier() * scale;
+        double targetHeight = PlayerVisualMetrics.HEIGHT * style.heightMultiplier() * scale;
+        double imageRatio = view.getImage().getWidth() / view.getImage().getHeight();
+        double targetRatio = targetWidth / targetHeight;
+        double imageWidth = targetWidth, imageHeight = targetHeight;
+        if (imageRatio > targetRatio) imageHeight = targetWidth / imageRatio;
+        else imageWidth = targetHeight * imageRatio;
+        view.setFitWidth(imageWidth); view.setFitHeight(imageHeight);
+        double centerX = screenX, centerY = screenY + style.centerOffsetY() * scale;
+        view.relocate(centerX - imageWidth / 2, centerY - imageHeight / 2);
+    }
 
-        if (auraActive) {
-            double size = AURA_SIZE * scale;
-            aura.setFitWidth(size);
-            aura.setFitHeight(size);
-            double auraOffsetX = 20 * scale;
-            double auraOffsetY = -25 * scale;
-            aura.relocate(screenX - size / 2 + auraOffsetX, screenY - size / 2 + auraOffsetY);
-        }
-        boolean stunned = player.stunned();
-        stun.setVisible(stunned);
-
-        if (stunned) {
-            double size = STUN_SIZE * scale;
-            stun.setFitWidth(size);
-            stun.setFitHeight(size);
-            stun.relocate(screenX - size / 2, screenY - Player.RADIUS * scale - size * 0.8);
-        }
+    private record EffectStyle(String resourcePath, double widthMultiplier, double heightMultiplier,
+            double centerOffsetY, Predicate<PlayerSnapshot> activeWhen, boolean required) { }
+    private record EffectView(EffectStyle style, ImageView view) { }
+    private record PlayerEffects(List<EffectView> effects) {
+        private List<ImageView> views() { return effects.stream().map(EffectView::view).toList(); }
     }
 }

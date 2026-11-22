@@ -7,6 +7,7 @@ import domain.model.entity.Player;
 import domain.model.exception.DopoSoccerException;
 import domain.model.physics.PhysicsEngine;
 import domain.model.physics.PhysicsSimulation;
+import domain.model.game.lifecycle.MatchLifecycle;
 
 /**
  * Representa un partido de DOPO-SOCCER.
@@ -22,8 +23,7 @@ public class Game {
     public static final double GOAL_DEPTH = 48.0;
     public static final double GOAL_TOP = 310.0;
     private static final double KICKOFF_DELAY_SECONDS = 1.0;
-    private boolean finished;
-    private int winner; // 1 = Jugador1, 2= Jugador2
+    private final MatchLifecycle lifecycle = new MatchLifecycle();
     private final PlayerMode playerMode;
     private final Player firstPlayer;
     private final Player secondPlayer;
@@ -55,6 +55,7 @@ public class Game {
         this.physicsSimulation = physicsSimulation;
         this.firstPlayer = new Player(firstCountry, WIDTH / 2 - 60);
         this.secondPlayer = new Player(secondCountry, WIDTH / 2 + 60);
+        this.secondPlayer.setFacingDirection(-1);
         this.ball = new Ball(WIDTH / 2, 160);
         prepareKickoff();
     }
@@ -109,7 +110,10 @@ public class Game {
         if (firstInput == null || secondInput == null) {
             throw new DopoSoccerException(DopoSoccerException.NULL_CONFIG);
         }
-        if (finished) {
+        if (deltaSeconds < 0) {
+            throw new DopoSoccerException(DopoSoccerException.NEGATIVE_TIME);
+        }
+        if (lifecycle.isFinished()) {
             return;
         }
         physicsSimulation.update(this, firstInput, secondInput, deltaSeconds);
@@ -117,25 +121,29 @@ public class Game {
         updateKickoffDelay(delta);
         if (!kickoffDelayActive()) {
             if (firstInput.kick()) {
-                physicsSimulation.kick(firstPlayer, secondPlayer, ball, 1);
+                physicsSimulation.kick(
+                        firstPlayer, secondPlayer, ball, firstPlayer.facingDirection());
             }
             if (secondInput.kick()) {
-                physicsSimulation.kick(secondPlayer, firstPlayer, ball, -1
-                );
+                physicsSimulation.kick(
+                        secondPlayer, firstPlayer, ball, secondPlayer.facingDirection());
             }
         }
     }
     public boolean isFinished() {
-        return finished;
+        return lifecycle.isFinished();
     }
 
     public int winner() {
-        return winner;
+        return lifecycle.winner();
+    }
+
+    public MatchLifecycle.State lifecycleState() {
+        return lifecycle.state();
     }
 
     protected void finishMatch(int winner) {
-        this.finished = true;
-        this.winner = winner;
+        lifecycle.finish(winner);
     }
 
     protected int compareScores() {
@@ -153,6 +161,7 @@ public class Game {
         secondPlayer.moveTo(WIDTH / 2 + 60, GROUND_Y - Player.RADIUS);
         ball.setPosition(WIDTH / 2, 160);
         ball.setVelocity(0, 0);
+        ball.clearPowerShot();
         kickoffDelay = KICKOFF_DELAY_SECONDS;
     }
     public String modeDescription() {
