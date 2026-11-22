@@ -409,7 +409,16 @@ public class CharacterSelectionPane extends StackPane {
                 }
         );
 
-        VBox card = new VBox(16, playerLabel, instruction, countrySelector);
+        ImageView flagView = new ImageView();
+        flagView.setFitWidth(58);
+        flagView.setFitHeight(38);
+        flagView.setPreserveRatio(true);
+        flagView.setSmooth(true);
+        updateFlag(flagView, selectedCountry);
+        countrySelector.valueProperty().addListener((observable, oldValue, newValue) -> updateFlag(flagView, newValue));
+        HBox countryChoice = new HBox(12, flagView, countrySelector);
+        countryChoice.setAlignment(Pos.CENTER);
+        VBox card = new VBox(16, playerLabel, instruction, countryChoice);
         card.setAlignment(Pos.CENTER);
         card.setPadding(new Insets(15));
         card.setPrefWidth(330);
@@ -426,6 +435,21 @@ public class CharacterSelectionPane extends StackPane {
         return card;
     }
 
+
+    private void updateFlag(ImageView flagView, MatchSetup.Country country) {
+        if (country == null) {
+            flagView.setImage(null);
+            return;
+        }
+        String file = switch (country) {
+            case SOUTH_KOREA -> "kr.png";
+            case CAMEROON -> "cm.png";
+            case NIGERIA -> "ng.png";
+            case USA -> "us.png";
+        };
+        var resource = getClass().getResource("/resources/Images/flags/" + file);
+        flagView.setImage(resource == null ? null : new Image(resource.toExternalForm()));
+    }
 
     private void startMatch() {
         onStartMatch.accept(matchConfig);

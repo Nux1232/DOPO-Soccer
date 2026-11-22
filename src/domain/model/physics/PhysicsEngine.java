@@ -23,7 +23,7 @@ import org.dyn4j.world.World;
  */
 public class PhysicsEngine implements PhysicsSimulation {
 
-    private static PhysicsConfig config;
+    private final PhysicsConfig config;
     private final double kickRange;
 
     /** Mundo físico de Dyn4j y cuerpos dinámicos. */
@@ -105,7 +105,7 @@ public class PhysicsEngine implements PhysicsSimulation {
         second.tick(dt);
         ball.tickPowerShot(dt);
         ballBody.getFixture(0).setRestitution(
-                ball.activePowerShot() == PowerShot.TORNADO ? 0.95 : 0.72);
+                ball.activePowerShot() == null ? 0.72 : ball.activePowerShot().restitution());
 
         // 1. Aplicar entradas de control a los jugadores
         inputHandler.apply(first, firstInput, kickoffLocked);
@@ -163,7 +163,7 @@ public class PhysicsEngine implements PhysicsSimulation {
                         dir * powerShot.horizontalSpeed(),
                         powerShot.verticalSpeed());
                 ballBody.getFixture(0).setRestitution(
-                        powerShot == PowerShot.TORNADO ? 0.95 : 0.72);
+                        powerShot.restitution());
             } else {
                 ball.clearPowerShot();
                 ball.setVelocity(dir * config.kickSpeedX(), config.kickSpeedY());
@@ -330,7 +330,7 @@ public class PhysicsEngine implements PhysicsSimulation {
         if (y + Ball.RADIUS >= Game.GROUND_Y - 0.5) {
             y = Game.GROUND_Y - Ball.RADIUS;
             if (vy > 0) {
-                double bounceMultiplier = ball.activePowerShot() == PowerShot.TORNADO ? 0.95 : 0.72;
+                double bounceMultiplier = ball.activePowerShot() == null ? 0.72 : ball.activePowerShot().restitution();
                 vy = -vy * bounceMultiplier;
             }
             // Si el rebote vertical ya es muy pequeño, detener el rebote en el suelo

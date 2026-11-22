@@ -68,7 +68,7 @@ public final class DopoSoccer {
         return new MatchSnapshot(Game.WIDTH, Game.HEIGHT, Game.GROUND_Y,
                 currentMatch.modeDescription(), currentMatch.isFinished(), currentMatch.winner(),
                 playerSnapshot(first), playerSnapshot(second), ball.x(), ball.y(), Ball.RADIUS,
-                shot == null ? null : shot.name(), shot == null ? null : shot.visualAsset(),
+                shot == null ? null : shot.id(), shot == null ? null : shot.visualAsset(),
                 shot == null ? null : shot.visualColor(), shot == null ? 0 : shot.durationSeconds(),
                 shot == null ? 0 : shot.durationSeconds() - ball.powerShotTime());
     }
