@@ -1,39 +1,39 @@
 package domain.model.entity;
 
-import java.util.List;
-import java.util.Locale;
+import domain.model.exception.DopoSoccerException;
+import domain.model.game.Game;
 
-/** Personaje seleccionable; una subclase reúne identidad, recursos y poder. */
-public abstract class Country {
-    public static final Country SOUTH_KOREA = new SouthKorea();
-    public static final Country CAMEROON = new Cameroon();
-    public static final Country NIGERIA = new Nigeria();
-    public static final Country USA = new UnitedStates();
-    private static final List<Country> AVAILABLE = List.of(SOUTH_KOREA, CAMEROON, NIGERIA, USA);
+/** Base abstracta para personajes: identidad y comportamiento de su poder. */
+public abstract class Country implements Power {
+    private final String id, displayName, color, flagAsset;
+    private final double duration, baseDamage, speedX, speedY, restitution;
+    private final PlayerStatusEffect effect;
 
-    private final String id;
-    private final String displayName;
-    private final String color;
-    private final String flagAsset;
-    private final PowerShot powerShot;
-
-    protected Country(String id, String displayName, String color, String flagAsset, PowerShot powerShot) {
-        this.id = id; this.displayName = displayName; this.color = color;
-        this.flagAsset = flagAsset; this.powerShot = powerShot;
+    protected Country(String id, String displayName, String color, String flagAsset,
+                      double duration, double baseDamage, double speedX, double speedY,
+                      PlayerStatusEffect effect, double restitution) {
+        this.id=id; this.displayName=displayName; this.color=color; this.flagAsset=flagAsset;
+        this.duration=duration; this.baseDamage=baseDamage; this.speedX=speedX; this.speedY=speedY;
+        this.effect=effect; this.restitution=restitution;
     }
-    public final String id() { return id; }
-    public final String displayName() { return displayName; }
-    public final String color() { return color; }
-    public final String flagAsset() { return flagAsset; }
-    public final PowerShot powerShot() { return powerShot; }
-    /** Compatibilidad para consumidores que antes usaban Enum.name(). */
-    public final String name() { return id.toUpperCase(Locale.ROOT).replace('-', '_'); }
-    public static List<Country> available() { return AVAILABLE; }
-    /** Compatibilidad con el código anterior basado en enum. */
-    public static Country[] values() { return AVAILABLE.toArray(Country[]::new); }
-    public static Country valueOf(String name) {
-        for (Country country : AVAILABLE) if (country.name().equals(name)) return country;
-        throw new IllegalArgumentException("País desconocido: " + name);
+    public final String id(){return id;}
+    public final String displayName(){return displayName;}
+    public final String color(){return color;}
+    public final String flagAsset(){return flagAsset;}
+    @Override public final String visualAsset(){return powerAsset();}
+    @Override public final String visualColor(){return powerColor();}
+    protected abstract String powerAsset();
+    protected abstract String powerColor();
+    @Override public final double durationSeconds(){return duration;}
+    @Override public final double damage(){return baseDamage*5.0;}
+    @Override public final double horizontalSpeed(){return speedX;}
+    @Override public final double verticalSpeed(){return speedY;}
+    @Override public final PlayerStatusEffect hitEffect(){return effect;}
+    @Override public final double restitution(){return restitution;}
+    @Override public void applyImpact(Player owner, Player opponent) throws DopoSoccerException {
+        opponent.takeDamage(damage());
+        if (!opponent.stunned()) opponent.applyStatusEffect(hitEffect(), durationSeconds());
     }
-    @Override public final String toString() { return displayName; }
+    public String name(){return id.toUpperCase(java.util.Locale.ROOT).replace('-', '_');}
+    @Override public String toString(){return displayName;}
 }

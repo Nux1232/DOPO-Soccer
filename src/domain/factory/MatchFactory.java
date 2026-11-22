@@ -2,7 +2,6 @@ package domain.factory;
 
 import domain.DopoSoccer.MatchKind;
 import domain.DopoSoccer.MatchRequest;
-import domain.DopoSoccer.CountrySelection;
 import domain.DopoSoccer.PlayerModeKind;
 import domain.model.entity.Country;
 import domain.model.exception.DopoSoccerException;
@@ -19,14 +18,14 @@ public final class MatchFactory {
     public static Game create(MatchRequest request) throws DopoSoccerException {
         validate(request);
         PlayerMode mode = PlayerMode.valueOf(request.playerMode().name());
-        Country first = Country.valueOf(request.firstCountry().name());
-        Country second = Country.valueOf(request.secondCountry().name());
+        Country first = CountryFactory.create(request.firstCountry());
+        Country second = CountryFactory.create(request.secondCountry());
         PhysicsEngine physics = new PhysicsEngine();
 
-        return switch (request.matchType()) {
-            case GOALS -> new GoalGame(mode, first, second, physics, request.goalLimit());
-            case TIME -> new TimeGame(mode, first, second, physics, request.durationSeconds());
-        };
+        if (request.matchType() == MatchKind.GOALS) {
+            return new GoalGame(mode, first, second, physics, request.goalLimit());
+        }
+        return new TimeGame(mode, first, second, physics, request.durationSeconds());
     }
 
     private static void validate(MatchRequest request) throws DopoSoccerException {

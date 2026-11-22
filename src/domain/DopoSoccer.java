@@ -1,11 +1,17 @@
 package domain;
 
+import domain.factory.CountryFactory;
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
 import domain.model.entity.Player;
 import domain.model.entity.Ball;
-import domain.model.entity.PowerShot;
+import domain.model.entity.Power;
 import domain.factory.MatchFactory;
+import domain.model.ai.FootballAI;
+import domain.model.persistence.ProfileStore;
+import domain.model.persistence.PlayerProfile;
+
+import java.util.List;
 
 /**
  * Fachada pública del dominio DOPO-SOCCER.
@@ -14,6 +20,8 @@ import domain.factory.MatchFactory;
  */
 public final class DopoSoccer {
     private Game currentMatch;
+    private final FootballAI ai = new FootballAI();
+    private final ProfileStore profiles = new ProfileStore();
 
 
     public enum MatchKind { GOALS, TIME }
@@ -23,8 +31,13 @@ public final class DopoSoccer {
 
     /** Contrato público para iniciar un partido, sin exponer entidades. */
     public record MatchRequest(PlayerModeKind playerMode, MatchKind matchType,
-            CountrySelection firstCountry, CountrySelection secondCountry,
-            int goalLimit, int durationSeconds) { }
+            String firstCountry, String secondCountry, int goalLimit, int durationSeconds) {
+        /** Compatibility constructor for the original built-in-country enum API. */
+        public MatchRequest(PlayerModeKind mode, MatchKind type, CountrySelection first,
+                CountrySelection second, int goals, int seconds) {
+            this(mode,type,first==null?null:first.name(),second==null?null:second.name(),goals,seconds);
+        }
+    }
 
     /** Acciones abstractas independientes del teclado o dispositivo. */
     public record PlayerActions(boolean left, boolean right, boolean jump, boolean kick, boolean power) { }
@@ -45,17 +58,63 @@ public final class DopoSoccer {
 
     public void startMatch(MatchRequest request) throws DopoSoccerException {
         currentMatch = MatchFactory.create(request);
+        loadProfile("player1", currentMatch.firstPlayer());
+        loadProfile("player2", currentMatch.secondPlayer());
     }
 
     public void updateMatch(PlayerActions first, PlayerActions second, double deltaSeconds)
             throws DopoSoccerException {
         requireMatch();
         if (deltaSeconds < 0) throw new DopoSoccerException(DopoSoccerException.NEGATIVE_TIME);
-        currentMatch.update(toInput(first), toInput(second), deltaSeconds);
+        boolean wasFinished=currentMatch.isFinished();
+        PlayerActions effectiveSecond = currentMatch.playerMode() == domain.model.game.PlayerMode.PLAYER_VS_MACHINE
+                ? toActions(ai.decide(currentMatch.secondPlayer(), currentMatch.firstPlayer(), currentMatch.ball()))
+                : second;
+        currentMatch.update(toInput(first), toInput(effectiveSecond), deltaSeconds);
+        if (!wasFinished && currentMatch.isFinished()) saveProfiles();
+    }
+
+    private PlayerActions toActions(domain.model.game.PlayerInput input) {
+        return new PlayerActions(input.left(),input.right(),input.jump(),input.kick(),input.power());
+    }
+
+    private void loadProfile(String slot, Player player) {
+        PlayerProfile profile=profiles.load(slot);
+        if(profile!=null) player.stats().restore(profile);
+    }
+
+    /** Persists both player progression profiles for the next session. */
+    public void saveProfiles() {
+        requireMatch();
+        profiles.save("player1",currentMatch.firstPlayer().stats().profile());
+        profiles.save("player2",currentMatch.secondPlayer().stats().profile());
+    }
+
+    /** Explicit profile load/save operations are available to menu/profile UI. */
+    public PlayerProfile loadSavedProfile(String slot) { return profiles.load(slot); }
+    public void saveProfile(String slot, PlayerProfile profile) { profiles.save(slot,profile); }
+
+    public void improvePlayerStat(int playerNumber, String stat) {
+        requireMatch();
+        Player player=playerNumber==1?currentMatch.firstPlayer():playerNumber==2?currentMatch.secondPlayer():null;
+        if(player==null)throw new DopoSoccerException("Jugador debe ser 1 o 2");
+        String normalizedStat = stat.toLowerCase(java.util.Locale.ROOT);
+        if (normalizedStat.equals("speed")) {
+            player.stats().improveSpeed();
+        } else if (normalizedStat.equals("kick")) {
+            player.stats().improveKick();
+        } else if (normalizedStat.equals("jump")) {
+            player.stats().improveJump();
+        } else if (normalizedStat.equals("survival")) {
+            player.stats().improveSurvival();
+        } else {
+            throw new DopoSoccerException(DopoSoccerException.INVALID_STAT + " " + stat);
+        }
+        saveProfiles();
     }
 
     private domain.model.game.PlayerInput toInput(PlayerActions actions) {
-        if (actions == null) throw new IllegalArgumentException("Las acciones del jugador son obligatorias.");
+        if (actions == null) throw new DopoSoccerException("Las acciones del jugador son obligatorias.");
         return new domain.model.game.PlayerInput(actions.left(), actions.right(), actions.jump(), actions.kick(), actions.power());
     }
 
@@ -64,7 +123,7 @@ public final class DopoSoccer {
         Player first = currentMatch.firstPlayer();
         Player second = currentMatch.secondPlayer();
         Ball ball = currentMatch.ball();
-        PowerShot shot = ball.activePowerShot();
+        Power shot = ball.activePowerShot();
         return new MatchSnapshot(Game.WIDTH, Game.HEIGHT, Game.GROUND_Y,
                 currentMatch.modeDescription(), currentMatch.isFinished(), currentMatch.winner(),
                 playerSnapshot(first), playerSnapshot(second), ball.x(), ball.y(), Ball.RADIUS,
@@ -79,6 +138,8 @@ public final class DopoSoccer {
                 player.powerCharge(), player.facingDirection(), player.kicking(), player.stunned(),
                 player.power().name(), player.statusEffect().name());
     }
+
+    public java.util.List<String> availableCountries() { return List.of(CountryFactory.availableCountryIds()); }
 
     public MatchStatus matchStatus() {
         if (currentMatch == null) return MatchStatus.NO_MATCH;
@@ -97,6 +158,6 @@ public final class DopoSoccer {
     public void reset() { currentMatch = null; }
 
     private void requireMatch() {
-        if (currentMatch == null) throw new IllegalStateException("No hay un partido activo.");
+        if (currentMatch == null) throw new DopoSoccerException("No hay un partido activo.");
     }
 }

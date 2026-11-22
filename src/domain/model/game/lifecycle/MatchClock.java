@@ -1,4 +1,5 @@
 package domain.model.game.lifecycle;
+import domain.model.exception.DopoSoccerException;
 
 /** Reloj de partido con duración y cuenta regresiva encapsuladas. */
 public final class MatchClock {
@@ -6,7 +7,7 @@ public final class MatchClock {
     private double remainingSeconds;
 
     public MatchClock(int durationSeconds) {
-        if (durationSeconds <= 0) throw new IllegalArgumentException("La duración debe ser positiva");
+        if (durationSeconds <= 0) throw new DopoSoccerException("La duración debe ser positiva");
         this.durationSeconds = durationSeconds;
         this.remainingSeconds = durationSeconds;
     }
@@ -17,7 +18,7 @@ public final class MatchClock {
     public boolean expired() { return remainingSeconds <= 0.0; }
 
     public void advance(double deltaSeconds) {
-        if (deltaSeconds < 0) throw new IllegalArgumentException("El delta no puede ser negativo");
+        if (deltaSeconds < 0) throw new DopoSoccerException("El delta no puede ser negativo");
         remainingSeconds = Math.max(0.0, remainingSeconds - deltaSeconds);
     }
 

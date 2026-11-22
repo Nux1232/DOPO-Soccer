@@ -1,6 +1,7 @@
 package domain.model.entity;
 import domain.model.exception.DopoSoccerException;
 import domain.model.entity.service.PlayerProgression;
+import domain.model.persistence.PlayerProfile;
 
 /**
  * Estadísticas de un jugador: velocidad, patada, salto y supervivencia,
@@ -33,6 +34,16 @@ public final class PlayerStats {
 
     /** Costo en puntos de la próxima mejora (empieza en 500 y se duplica). */
     private int nextUpgradeCost = INITIAL_UPGRADE_COST;
+
+    /** Restores persistent progression, validating values through PlayerProfile. */
+    public void restore(PlayerProfile profile) {
+        if (profile == null) throw new DopoSoccerException("Perfil requerido");
+        speed=profile.speed(); kick=profile.kick(); jump=profile.jump(); survival=profile.survival();
+        points=profile.points(); nextUpgradeCost=profile.nextUpgradeCost();
+    }
+    public PlayerProfile profile() {
+        return new PlayerProfile(speed,kick,jump,survival,points,nextUpgradeCost);
+    }
 
     public int speed() {
         return speed;
@@ -93,10 +104,10 @@ public final class PlayerStats {
 
     private int improve(int currentValue) {
         if (currentValue >= MAX_LEVEL) {
-            throw new IllegalStateException(DopoSoccerException.STAT_AT_MAX);
+            throw new DopoSoccerException(DopoSoccerException.STAT_AT_MAX);
         }
         if (points < nextUpgradeCost) {
-            throw new IllegalStateException(DopoSoccerException.INSUFFICIENT_POINTS);
+            throw new DopoSoccerException(DopoSoccerException.INSUFFICIENT_POINTS);
         }
         points -= nextUpgradeCost;
         nextUpgradeCost = PlayerProgression.nextCost(nextUpgradeCost);

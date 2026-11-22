@@ -3,7 +3,7 @@ package domain.model.physics;
 import domain.model.entity.Ball;
 import domain.model.entity.Player;
 import domain.model.entity.Power;
-import domain.model.entity.PowerShot;
+import domain.model.entity.PowerState;
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
 import domain.model.game.PlayerInput;
@@ -23,7 +23,7 @@ import org.dyn4j.world.World;
  */
 public class PhysicsEngine implements PhysicsSimulation {
 
-    private static PhysicsConfig config;
+    private final PhysicsConfig config;
     private final double kickRange;
 
     /** Mundo físico de Dyn4j y cuerpos dinámicos. */
@@ -62,7 +62,7 @@ public class PhysicsEngine implements PhysicsSimulation {
     public PhysicsEngine(PhysicsConfig config, PlayerInputHandler inputHandler,
             GoalDetector goalDetector, PowerShotImpactHandler powerShotImpactHandler) {
         if (config == null || inputHandler == null || goalDetector == null || powerShotImpactHandler == null) {
-            throw new IllegalArgumentException("Las dependencias del motor no pueden ser null");
+            throw new DopoSoccerException("Las dependencias del motor no pueden ser null");
         }
         this.config = config;
         this.kickRange = Player.RADIUS + Ball.RADIUS + config.kickRangeBonus();
@@ -155,8 +155,8 @@ public class PhysicsEngine implements PhysicsSimulation {
         double distBall = Math.hypot(dxBall, dyBall);
 
         if (distBall <= kickRange) {
-            PowerShot powerShot = kicker.power() == Power.AURA
-                    ? kicker.country().powerShot() : null;
+            Power powerShot = kicker.power() == PowerState.AURA
+                    ? kicker.country() : null;
             if (powerShot != null && kicker.consumePower()) {
                 ball.startPowerShot(powerShot, kicker);
                 ball.setVelocity(
@@ -347,11 +347,11 @@ public class PhysicsEngine implements PhysicsSimulation {
         ball.setVelocity(vx, vy);
     }
 
-    private static double toMeters(double pixels) {
+    private double toMeters(double pixels) {
         return pixels / config.pixelsPerMeter();
     }
 
-    private static double toPixels(double meters) {
+    private double toPixels(double meters) {
         return meters * config.pixelsPerMeter();
     }
 

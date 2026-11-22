@@ -1,15 +1,19 @@
 package domain.model.entity.service;
 
-/** Reglas puras de progresión de estadísticas. */
+import domain.model.exception.DopoSoccerException;
+
+/** Reglas sencillas para subir estadísticas. */
 public final class PlayerProgression {
     private PlayerProgression() { }
 
-    public static int nextLevel(int current, int max) {
-        if (current >= max) throw new IllegalStateException("La estadística está al máximo.");
+    public static int nextLevel(int current, int maximum) {
+        if (current >= maximum) {
+            throw new DopoSoccerException(DopoSoccerException.STAT_AT_MAX);
+        }
         return current + 1;
     }
 
     public static int nextCost(int currentCost) {
-        return Math.multiplyExact(currentCost, 2);
+        return currentCost * 2;
     }
 }

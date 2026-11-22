@@ -6,7 +6,9 @@ import domain.model.entity.service.PlayerStatusService;
 /**
  * Representa a un jugador durante un partido de DOPOSoccer.
  */
-public final class Player {
+public abstract class Player {
+
+    public abstract PlayerSide side();
 
     /** Radio del jugador en píxeles. */
     public static final double RADIUS = 25.0;
@@ -29,7 +31,7 @@ public final class Player {
     private int goals;
     private double health;
     private double powerCharge;
-    private Power power = Power.NONE;
+    private PowerState power = PowerState.NONE;
     private double x;
     private double y;
     private double velocityX;
@@ -42,7 +44,8 @@ public final class Player {
     private PlayerStatusEffect statusEffect = PlayerStatusEffect.NONE;
     private double statusEffectTimer;
 
-    public Player(Country country, double x) {
+    protected Player(Country country, double x) {
+        if (country == null) throw new DopoSoccerException("El país del jugador es obligatorio.");
         this.country = country;
         this.x = x;
         this.health = maxHealth();
@@ -54,6 +57,12 @@ public final class Player {
 
     public PlayerStats stats() {
         return stats;
+    }
+
+    /** Restores progression and synchronizes health with the restored survival level. */
+    public void restoreProfile(domain.model.persistence.PlayerProfile profile) {
+        stats.restore(profile);
+        health=maxHealth();
     }
 
     public int goals() {
@@ -98,7 +107,7 @@ public final class Player {
         return powerCharge;
     }
 
-    public Power power() {
+    public PowerState power() {
         return power;
     }
 
@@ -256,7 +265,7 @@ public final class Player {
                 MAX_POWER_CHARGE, stunned())) {
             return false;
         }
-        power = Power.AURA;
+        power = PowerState.AURA;
         powerCharge = 0.0;
         return true;
     }
@@ -268,10 +277,10 @@ public final class Player {
      * @return true si tenía el aura activa y fue consumida
      */
     public boolean consumePower() {
-        if (power == Power.NONE) {
+        if (power == PowerState.NONE) {
             return false;
         }
-        power = Power.NONE;
+        power = PowerState.NONE;
         return true;
     }
 
@@ -311,7 +320,7 @@ public final class Player {
         goals = 0;
         health = maxHealth();
         powerCharge = 0;
-        power = Power.NONE;
+        power = PowerState.NONE;
         stunTimer = 0;
         kickAnimationTimer = 0;
         clearStatusEffect();

@@ -53,8 +53,8 @@ public class DopoSoccerGUI extends Application {
             dopoSoccer.startMatch(new DopoSoccer.MatchRequest(
                     DopoSoccer.PlayerModeKind.valueOf(config.playerMode()),
                     DopoSoccer.MatchKind.valueOf(config.type().name()),
-                    DopoSoccer.CountrySelection.valueOf(config.firstCountry().name()),
-                    DopoSoccer.CountrySelection.valueOf(config.secondCountry().name()),
+                    config.firstCountry().name(),
+                    config.secondCountry().name(),
                     config.goalLimit(), config.durationSeconds()));
             activeGamePane = new GamePlayPane(
                     toPresentationSnapshot(dopoSoccer.snapshot()),

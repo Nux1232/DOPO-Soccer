@@ -4,6 +4,8 @@ package domain.model.game;
 import domain.model.entity.Ball;
 import domain.model.entity.Country;
 import domain.model.entity.Player;
+import domain.model.entity.LPlayer;
+import domain.model.entity.RPlayer;
 import domain.model.exception.DopoSoccerException;
 import domain.model.physics.PhysicsEngine;
 import domain.model.physics.PhysicsSimulation;
@@ -53,9 +55,9 @@ public class Game {
         }
         this.playerMode = playerMode;
         this.physicsSimulation = physicsSimulation;
-        this.firstPlayer = new Player(firstCountry, WIDTH / 2 - 60);
-        this.secondPlayer = new Player(secondCountry, WIDTH / 2 + 60);
-        this.secondPlayer.setFacingDirection(-1);
+        this.firstPlayer = new LPlayer(firstCountry, WIDTH / 2 - 60);
+        this.secondPlayer = new RPlayer(secondCountry, WIDTH / 2 + 60);
+
         this.ball = new Ball(WIDTH / 2, 160);
         prepareKickoff();
     }

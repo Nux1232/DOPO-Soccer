@@ -1,4 +1,5 @@
 package domain.model.physics;
+import domain.model.exception.DopoSoccerException;
 
 /** Parámetros configurables del motor físico. Los valores estándar preservan el gameplay. */
 public record PhysicsConfig(
@@ -9,7 +10,7 @@ public record PhysicsConfig(
         if (pixelsPerMeter <= 0 || gravityY < 0 || kickCooldownSeconds < 0
                 || ballStopSpeedX < 0 || ballStopSpeedY < 0 || kickRangeBonus < 0
                 || maxStepSeconds <= 0) {
-            throw new IllegalArgumentException("Configuración física inválida");
+            throw new DopoSoccerException("Configuración física inválida");
         }
     }
     public static PhysicsConfig standard() {
