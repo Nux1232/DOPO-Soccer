@@ -1,15 +1,7 @@
 package presentation.view.gui;
-import domain.model.game.MatchType;
-import domain.model.entity.Country;
-import domain.model.exception.DopoSoccerException;
-import domain.model.game.Game;
-import domain.model.game.GoalGame;
-import domain.model.game.TimeGame;
-import domain.model.game.GameMatchConfig;
-import domain.model.physics.PhysicsEngine;
+import presentation.model.MatchSetup;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -21,8 +13,8 @@ import javafx.scene.layout.VBox;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.control.ScrollPane;
-import presentation.view.util.ViewNavigator;
 import javafx.util.StringConverter;
+import java.util.function.Consumer;
 /**
  * Pantalla de selección de personajes.
  *
@@ -34,10 +26,21 @@ public class CharacterSelectionPane extends StackPane {
     private static final String BACKGROUND_PATH =
             "/resources/Images/background_selection.png";
 
-    private final GameMatchConfig matchConfig;
+    private final MatchSetup matchConfig;
+    private final Consumer<MatchSetup> onStartMatch;
+    private final Runnable onBack;
+    private final Runnable onImprove;
 
-    public CharacterSelectionPane(GameMatchConfig matchConfig) {
+    public CharacterSelectionPane(MatchSetup matchConfig, Consumer<MatchSetup> onStartMatch, Runnable onBack) {
+        this(matchConfig, onStartMatch, onBack, () -> {});
+    }
+
+    public CharacterSelectionPane(MatchSetup matchConfig, Consumer<MatchSetup> onStartMatch,
+            Runnable onBack, Runnable onImprove) {
         this.matchConfig = matchConfig;
+        this.onStartMatch = onStartMatch;
+        this.onBack = onBack;
+        this.onImprove = onImprove;
         setupUI();
     }
 
@@ -72,30 +75,30 @@ public class CharacterSelectionPane extends StackPane {
         matchTypeLabel.setMinHeight(30);
         matchTypeLabel.setAlignment(Pos.CENTER);
 
-        ComboBox<MatchType> matchTypeSelector = new ComboBox<>();
-        matchTypeSelector.getItems().setAll(MatchType.values());
-        matchTypeSelector.setValue(matchConfig.getMatchType());
+        ComboBox<MatchSetup.Type> matchTypeSelector = new ComboBox<>();
+        matchTypeSelector.getItems().setAll(MatchSetup.Type.values());
+        matchTypeSelector.setValue(matchConfig.type());
         matchTypeSelector.setPrefWidth(190);
         matchTypeSelector.setPrefHeight(38);
 
         matchTypeSelector.setConverter(new StringConverter<>() {
             @Override
-            public String toString(MatchType type) {
+            public String toString(MatchSetup.Type type) {
                 if (type == null) return "";
-                return switch (type) {
-                    case GOALS -> "GOLES";
-                    case TIME -> "POR TIEMPO";
-                };
+                if (type == MatchSetup.Type.GOALS) {
+                    return "GOLES";
+                }
+                return "POR TIEMPO";
             }
 
             @Override
-            public MatchType fromString(String value) {
+            public MatchSetup.Type fromString(String value) {
                 return null;
             }
         });
 
 
-        TextField goalsSelector = new TextField(String.valueOf(matchConfig.getGoalLimit()));
+        TextField goalsSelector = new TextField(String.valueOf(matchConfig.goalLimit()));
         goalsSelector.setPrefWidth(110);
         goalsSelector.setPrefHeight(38);
         goalsSelector.setPromptText("Ej. 10");
@@ -107,15 +110,15 @@ public class CharacterSelectionPane extends StackPane {
         goalsSelector.textProperty().addListener((obs, oldValue, newValue) -> {
             if (!newValue.isBlank()) {
                 try {
-                    matchConfig.setGoalLimit(Integer.parseInt(newValue));
-                } catch (DopoSoccerException ignored) {
+                    matchConfig.goalLimit(Integer.parseInt(newValue));
+                } catch (NumberFormatException ignored) {
                     // Se conserva el último valor válido.
                 }
             }
         });
 
         TextField timeSelector = new TextField(
-                String.valueOf(matchConfig.getDurationSeconds() / 60)
+                String.valueOf(matchConfig.durationSeconds() / 60)
         );
         timeSelector.setPrefWidth(110);
         timeSelector.setPrefHeight(38);
@@ -128,10 +131,8 @@ public class CharacterSelectionPane extends StackPane {
         timeSelector.textProperty().addListener((obs, oldValue, newValue) -> {
             if (!newValue.isBlank()) {
                 try {
-                    matchConfig.setDurationSeconds(
-                            Math.multiplyExact(Integer.parseInt(newValue), 60)
-                    );
-                } catch (DopoSoccerException ignored) {
+                    matchConfig.durationSeconds(Math.multiplyExact(Integer.parseInt(newValue), 60));
+                } catch (NumberFormatException ignored) {
                     // El valor se valida automaticamente
                 }
             }
@@ -153,7 +154,7 @@ public class CharacterSelectionPane extends StackPane {
 
         // Mostrar únicamente el parámetro correspondiente
         Runnable updateMatchOptions = () -> {
-            boolean goalMode = matchConfig.getMatchType() == MatchType.GOALS;
+            boolean goalMode = matchConfig.type() == MatchSetup.Type.GOALS;
 
             goalsBox.setVisible(goalMode);
             goalsBox.setManaged(goalMode);
@@ -163,10 +164,10 @@ public class CharacterSelectionPane extends StackPane {
         };
 
         matchTypeSelector.setOnAction(event -> {
-            MatchType selected = matchTypeSelector.getValue();
+            MatchSetup.Type selected = matchTypeSelector.getValue();
 
             if (selected != null) {
-                matchConfig.setMatchType(selected);
+                matchConfig.type(selected);
                 updateMatchOptions.run();
             }
         });
@@ -232,13 +233,33 @@ public class CharacterSelectionPane extends StackPane {
 
 
 
-        VBox firstCard = createPlayerCard("JUGADOR 1", matchConfig.getPlayer1Character(), true
+        VBox firstCard = createPlayerCard("JUGADOR 1", matchConfig.firstCountry(), true
         );
 
-        VBox secondCard = createPlayerCard("JUGADOR 2", matchConfig.getPlayer2Character(), false
-        );
+        String secondHeading = "PLAYER_VS_MACHINE".equals(matchConfig.playerMode())
+                ? "MÁQUINA" : "JUGADOR 2";
+        VBox secondCard = createPlayerCard(secondHeading, matchConfig.secondCountry(), false);
 
         HBox playersContainer = new HBox(22, firstCard, secondCard);
+
+        VBox aiProfileBox = new VBox(6);
+        Label aiProfileLabel = new Label("PERFIL DE LA MÁQUINA");
+        aiProfileLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
+        ComboBox<String> aiProfileSelector = new ComboBox<>();
+        aiProfileSelector.getItems().addAll("TORPE", "OFENSIVA", "DEFENSIVA", "EXPERTA");
+        aiProfileSelector.setValue("EXPERTA");
+        aiProfileSelector.setPrefWidth(220);
+        aiProfileSelector.valueProperty().addListener((obs, oldValue, newValue) -> {
+            if (newValue != null) {
+                matchConfig.aiProfile(newValue.equals("TORPE") ? "CLUMSY"
+                        : newValue.equals("OFENSIVA") ? "OFFENSIVE"
+                        : newValue.equals("DEFENSIVA") ? "DEFENSIVE" : "EXPERT");
+            }
+        });
+        aiProfileBox.getChildren().addAll(aiProfileLabel, aiProfileSelector);
+        aiProfileBox.setAlignment(Pos.CENTER);
+        aiProfileBox.setVisible("PLAYER_VS_MACHINE".equals(matchConfig.playerMode()));
+        aiProfileBox.setManaged(aiProfileBox.isVisible());
 
         Label controlsTitle = new Label("¿CÓMO JUGAR?");
         controlsTitle.setStyle(
@@ -257,7 +278,7 @@ public class CharacterSelectionPane extends StackPane {
         );
 
         Label player2Controls = new Label(
-                "JUGADOR 2   ← / →: Moverse     ↑: Saltar     ENTER: Patear     SHIFT: Poder"
+                "JUGADOR 2 / MÁQUINA   ← / →: Moverse     ↑: Saltar     ENTER: Patear     SHIFT: Poder"
         );
         player2Controls.setStyle(
                 "-fx-text-fill: #8ecbff;" +
@@ -265,11 +286,28 @@ public class CharacterSelectionPane extends StackPane {
                         "-fx-font-weight: bold;"
         );
 
+        Label resolutionLabel = new Label("RESOLUCIÓN DE CANCHA");
+        resolutionLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
+        ComboBox<MatchSetup.Resolution> resolutionSelector = new ComboBox<>();
+        resolutionSelector.getItems().setAll(MatchSetup.Resolution.values());
+        resolutionSelector.setValue(matchConfig.resolution());
+        resolutionSelector.setConverter(new StringConverter<>() {
+            @Override public String toString(MatchSetup.Resolution value) {
+                if (value == null) return "";
+                return value.width() + " × " + value.height();
+            }
+            @Override public MatchSetup.Resolution fromString(String text) { return null; }
+        });
+        resolutionSelector.valueProperty().addListener((obs, oldValue, value) -> matchConfig.resolution(value));
+        VBox resolutionBox = new VBox(5, resolutionLabel, resolutionSelector);
+        resolutionBox.setAlignment(Pos.CENTER);
+
         VBox controlsBox = new VBox(
                 10,
                 controlsTitle,
                 player1Controls,
-                player2Controls
+                player2Controls,
+                resolutionBox
         );
 
         controlsBox.setAlignment(Pos.CENTER);
@@ -325,6 +363,10 @@ public class CharacterSelectionPane extends StackPane {
 
         startButton.setOnAction(event -> startMatch());
 
+        Button improveButton = new Button("MEJORAR ESTADÍSTICAS");
+        improveButton.setPrefWidth(260);
+        improveButton.setOnAction(event -> onImprove.run());
+
         Button backButton = new Button("VOLVER AL MENÚ PRINCIPAL");
 
         backButton.setPrefWidth(230);
@@ -341,15 +383,13 @@ public class CharacterSelectionPane extends StackPane {
                         "-fx-cursor: hand;"
         );
 
-        backButton.setOnAction(event ->
-                ViewNavigator.loadView(new MainMenuPane(matchConfig))
-        );
+        backButton.setOnAction(event -> onBack.run());
 
         VBox content = new VBox(
                 10, title,
                 subtitle, matchSettings,
-                playersContainer, controlsBox,
-                startButton, backButton
+                aiProfileBox, playersContainer, controlsBox,
+                improveButton, startButton, backButton
         );
 
         content.setAlignment(Pos.CENTER);
@@ -379,7 +419,7 @@ public class CharacterSelectionPane extends StackPane {
 
     }
 
-    private VBox createPlayerCard(String heading, Country selectedCountry, boolean firstPlayer) {
+    private VBox createPlayerCard(String heading, MatchSetup.Country selectedCountry, boolean firstPlayer) {
         Label playerLabel = new Label(heading);
         playerLabel.setStyle(
                 "-fx-font-size: 19px;" +
@@ -393,8 +433,8 @@ public class CharacterSelectionPane extends StackPane {
                 "-fx-font-size: 12px;" +
                         "-fx-text-fill: #c8d9eb;"
         );
-        ComboBox<Country> countrySelector = new ComboBox<>();
-        countrySelector.getItems().setAll(Country.values());
+        ComboBox<MatchSetup.Country> countrySelector = new ComboBox<>();
+        countrySelector.getItems().setAll(MatchSetup.Country.values());
         countrySelector.setValue(selectedCountry);
         countrySelector.setPrefWidth(285);
         countrySelector.setPrefHeight(42);
@@ -409,14 +449,23 @@ public class CharacterSelectionPane extends StackPane {
                         return;
                     }
                     if (firstPlayer) {
-                        matchConfig.setPlayer1Character(newValue);
+                        matchConfig.firstCountry(newValue);
                     } else {
-                        matchConfig.setPlayer2Character(newValue);
+                        matchConfig.secondCountry(newValue);
                     }
                 }
         );
 
-        VBox card = new VBox(16, playerLabel, instruction, countrySelector);
+        ImageView flagView = new ImageView();
+        flagView.setFitWidth(58);
+        flagView.setFitHeight(38);
+        flagView.setPreserveRatio(true);
+        flagView.setSmooth(true);
+        updateFlag(flagView, selectedCountry);
+        countrySelector.valueProperty().addListener((observable, oldValue, newValue) -> updateFlag(flagView, newValue));
+        HBox countryChoice = new HBox(12, flagView, countrySelector);
+        countryChoice.setAlignment(Pos.CENTER);
+        VBox card = new VBox(16, playerLabel, instruction, countryChoice);
         card.setAlignment(Pos.CENTER);
         card.setPadding(new Insets(15));
         card.setPrefWidth(330);
@@ -434,39 +483,23 @@ public class CharacterSelectionPane extends StackPane {
     }
 
 
-    private void startMatch() {
-        try {
-            Game match;
-
-            if (matchConfig.getMatchType() == MatchType.GOALS) {
-                match = new GoalGame(
-                        matchConfig.getGameMode(),
-                        matchConfig.getPlayer1Character(),
-                        matchConfig.getPlayer2Character(),
-                        new PhysicsEngine(),
-                        matchConfig.getGoalLimit()
-                );
-            } else {
-                match = new TimeGame(
-                        matchConfig.getGameMode(),
-                        matchConfig.getPlayer1Character(),
-                        matchConfig.getPlayer2Character(),
-                        new PhysicsEngine(),
-                        matchConfig.getDurationSeconds()
-                );
-            }
-
-            ViewNavigator.loadView(
-                    new GamePlayPane(match, matchConfig)
-            );
-
-        } catch (DopoSoccerException exception) {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("DOPO-SOCCER");
-            alert.setHeaderText("No se pudo iniciar el partido");
-            alert.setContentText(exception.getMessage());
-            alert.showAndWait();
+    private void updateFlag(ImageView flagView, MatchSetup.Country country) {
+        if (country == null) {
+            flagView.setImage(null);
+            return;
         }
+        String file = switch (country) {
+            case SOUTH_KOREA -> "kr.png";
+            case CAMEROON -> "cm.png";
+            case NIGERIA -> "ng.png";
+            case USA -> "us.png";
+        };
+        var resource = getClass().getResource("/resources/Images/flags/" + file);
+        flagView.setImage(resource == null ? null : new Image(resource.toExternalForm()));
+    }
+
+    private void startMatch() {
+        onStartMatch.accept(matchConfig);
     }
 
 }

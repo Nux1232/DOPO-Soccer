@@ -372,7 +372,7 @@ class DopoSoccerTestV2 {
     }
 
     @Test
-    void timeGameFinishesWhenTimeRunsOut()
+    void timeGameEntersSuddenDeathWhenTimeRunsOutInTie()
             throws DopoSoccerException {
 
         TimeGame game = new TimeGame(
@@ -385,8 +385,10 @@ class DopoSoccerTestV2 {
 
         game.update(PlayerInput.NONE, PlayerInput.NONE, 1);
 
-        assertTrue(game.isFinished());
+        assertFalse(game.isFinished());
+        assertTrue(game.suddenDeath());
         assertEquals(0, game.winner());
+        assertEquals("MUERTE SÚBITA — GOL DE ORO", game.modeDescription());
     }
 
     // =========================

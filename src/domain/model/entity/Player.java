@@ -1,10 +1,14 @@
 package domain.model.entity;
 import domain.model.exception.DopoSoccerException;
+import domain.model.entity.service.PlayerPowerService;
+import domain.model.entity.service.PlayerStatusService;
 
 /**
  * Representa a un jugador durante un partido de DOPOSoccer.
  */
-public final class Player {
+public abstract class Player {
+
+    public abstract PlayerSide side();
 
     /** Radio del jugador en píxeles. */
     public static final double RADIUS = 25.0;
@@ -27,7 +31,7 @@ public final class Player {
     private int goals;
     private double health;
     private double powerCharge;
-    private Power power = Power.NONE;
+    private PowerState power = PowerState.NONE;
     private double x;
     private double y;
     private double velocityX;
@@ -40,7 +44,8 @@ public final class Player {
     private PlayerStatusEffect statusEffect = PlayerStatusEffect.NONE;
     private double statusEffectTimer;
 
-    public Player(Country country, double x) {
+    protected Player(Country country, double x) {
+        if (country == null) throw new DopoSoccerException("El país del jugador es obligatorio.");
         this.country = country;
         this.x = x;
         this.health = maxHealth();
@@ -52,6 +57,12 @@ public final class Player {
 
     public PlayerStats stats() {
         return stats;
+    }
+
+    /** Restores progression and synchronizes health with the restored survival level. */
+    public void restoreProfile(domain.model.persistence.PlayerProfile profile) {
+        stats.restore(profile);
+        health=maxHealth();
     }
 
     public int goals() {
@@ -96,7 +107,7 @@ public final class Player {
         return powerCharge;
     }
 
-    public Power power() {
+    public PowerState power() {
         return power;
     }
 
@@ -149,6 +160,10 @@ public final class Player {
 
     public boolean kicking() {
         return kickAnimationTimer > 0;
+    }
+
+    public double kickAnimationTimer() {
+        return kickAnimationTimer;
     }
 
     public PlayerStatusEffect statusEffect() {
@@ -224,8 +239,8 @@ public final class Player {
         kickCooldown = Math.max(0.0, kickCooldown - seconds);
         kickAnimationTimer = Math.max(0.0, kickAnimationTimer - seconds);
 
-        double chargePerSecond = MAX_POWER_CHARGE / POWER_CHARGE_SECONDS;
-        powerCharge = Math.min(MAX_POWER_CHARGE, powerCharge + seconds * chargePerSecond);
+        powerCharge = PlayerPowerService.recharge(powerCharge, seconds,
+                MAX_POWER_CHARGE, POWER_CHARGE_SECONDS);
 
         if (stunTimer > 0) {
             stunTimer = Math.max(0.0, stunTimer - seconds);
@@ -235,10 +250,10 @@ public final class Player {
         }
 
         if (statusEffectTimer > 0) {
-            statusEffectTimer = Math.max(0.0, statusEffectTimer - seconds);
-            if (statusEffectTimer == 0.0) {
-                clearStatusEffect();
-            }
+            PlayerStatusService.TickResult result = PlayerStatusService.tick(
+                    statusEffect, statusEffectTimer, seconds);
+            statusEffect = result.effect();
+            statusEffectTimer = result.remainingSeconds();
         }
     }
 
@@ -250,10 +265,11 @@ public final class Player {
      * @return true si se activó el aura
      */
     public boolean activatePower() {
-        if (power != Power.NONE || powerCharge < MAX_POWER_CHARGE || stunned()) {
+        if (!PlayerPowerService.canActivate(power, powerCharge,
+                MAX_POWER_CHARGE, stunned())) {
             return false;
         }
-        power = Power.AURA;
+        power = PowerState.AURA;
         powerCharge = 0.0;
         return true;
     }
@@ -265,10 +281,10 @@ public final class Player {
      * @return true si tenía el aura activa y fue consumida
      */
     public boolean consumePower() {
-        if (power == Power.NONE) {
+        if (power == PowerState.NONE) {
             return false;
         }
-        power = Power.NONE;
+        power = PowerState.NONE;
         return true;
     }
 
@@ -304,14 +320,27 @@ public final class Player {
         }
     }
 
-    public void resetForMatch(double x, double y) {
-        goals = 0;
-        health = maxHealth();
-        powerCharge = 0;
-        power = Power.NONE;
-        stunTimer = 0;
-        kickAnimationTimer = 0;
-        clearStatusEffect();
-        moveTo(x, y);
+
+    /** Restaura el estado de una partida guardada. */
+    public void restoreMatchState(int goals, double health, double powerCharge, PowerState power,
+            double x, double y, double velocityX, double velocityY, boolean grounded,
+            double kickCooldown, double kickAnimationTimer, double stunTimer, int facingDirection,
+            PlayerStatusEffect statusEffect, double statusEffectTimer) {
+        this.goals = Math.max(0, goals);
+        this.health = Math.max(0, Math.min(maxHealth(), health));
+        this.powerCharge = Math.max(0, Math.min(MAX_POWER_CHARGE, powerCharge));
+        this.power = power == null ? PowerState.NONE : power;
+        this.x = x;
+        this.y = y;
+        this.velocityX = velocityX;
+        this.velocityY = velocityY;
+        this.grounded = grounded;
+        this.kickCooldown = Math.max(0, kickCooldown);
+        this.kickAnimationTimer = Math.max(0, kickAnimationTimer);
+        this.stunTimer = Math.max(0, stunTimer);
+        this.facingDirection = facingDirection == 0 ? 1 : (facingDirection > 0 ? 1 : -1);
+        this.statusEffect = statusEffect == null ? PlayerStatusEffect.NONE : statusEffect;
+        this.statusEffectTimer = Math.max(0, statusEffectTimer);
     }
+
 }

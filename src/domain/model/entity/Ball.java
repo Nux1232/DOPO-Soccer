@@ -23,7 +23,7 @@ public final class Ball {
 
     /** Velocidad vertical actual del balón. */
     private double velocityY;
-    private PowerShot activePowerShot;
+    private Power activePowerShot;
     private Player powerShotOwner;
     private double powerShotTime;
     private boolean powerEffectApplied;
@@ -75,7 +75,7 @@ public final class Ball {
         return this.velocityY;
     }
 
-    public PowerShot activePowerShot() {
+    public Power activePowerShot() {
         return activePowerShot;
     }
 
@@ -91,7 +91,7 @@ public final class Ball {
         return powerEffectApplied;
     }
 
-    public void startPowerShot(PowerShot shot, Player owner) {
+    public void startPowerShot(Power shot, Player owner) {
         activePowerShot = shot;
         powerShotOwner = owner;
         powerShotTime = shot.durationSeconds();
@@ -110,6 +110,17 @@ public final class Ball {
         if (powerShotTime == 0.0) {
             clearPowerShot();
         }
+    }
+
+    public void restorePowerShot(Power shot, Player owner, double remaining, boolean effectApplied) {
+        if (shot == null || owner == null) {
+            clearPowerShot();
+            return;
+        }
+        activePowerShot = shot;
+        powerShotOwner = owner;
+        powerShotTime = Math.max(0, remaining);
+        powerEffectApplied = effectApplied;
     }
 
     public void clearPowerShot() {

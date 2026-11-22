@@ -4,6 +4,7 @@ package domain.model.game;
 import domain.model.entity.Country;
 import domain.model.exception.DopoSoccerException;
 import domain.model.physics.PhysicsSimulation;
+import domain.model.game.lifecycle.GoalLimitRule;
 
 /**
  * Partido que termina cuando un jugador alcanza el límite de goles.
@@ -43,11 +44,9 @@ public final class GoalGame extends Game {
 
         super.scoreGoal(scoringPlayer);
 
-        if (firstPlayer().goals() >= goalLimit) {
-            finishMatch(1);
-        } else if (secondPlayer().goals() >= goalLimit) {
-            finishMatch(2);
-        }
+        int winner = GoalLimitRule.winnerAtLimit(
+                firstPlayer().goals(), secondPlayer().goals(), goalLimit);
+        if (winner != -1) finishMatch(winner);
     }
     @Override
     public String modeDescription() {

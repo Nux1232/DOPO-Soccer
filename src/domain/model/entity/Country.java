@@ -1,76 +1,38 @@
 package domain.model.entity;
 
-/**
- * Países disponibles como personaje en el juego: los cuatro del Anexo 1
- * del enunciado (Corea del Sur, Camerún, Nigeria y Estados Unidos).
- * Cada país tiene un nombre para mostrar en pantalla y un color
- * asociado, escrito en formato hexadecimal (por ejemplo, "#008751").
- */
-public enum Country {
+import domain.model.exception.DopoSoccerException;
 
-    /** Corea del Sur. */
-    SOUTH_KOREA("Corea del Sur", "#CD2E3A", PowerShot.BLUE_AURA),
+/** Base abstracta para personajes: identidad y comportamiento de su poder. */
+public abstract class Country implements Power {
+    private final String id, displayName, color, flagAsset;
+    private final double duration, baseDamage, speedX, speedY, restitution;
+    private final PlayerStatusEffect effect;
 
-    /** Camerún. */
-    CAMEROON("Camerún", "#F2B705", PowerShot.ELECTRIC_BOLT),
-
-    /** Nigeria. */
-    NIGERIA("Nigeria", "#008751", PowerShot.TORNADO),
-
-    /** Estados Unidos. */
-    USA("Estados Unidos", "#3C3B6E", PowerShot.ILLUSION);
-
-    /** Nombre del país tal como se muestra al usuario. */
-    private final String displayName;
-
-    /** Color asociado al país, en formato hexadecimal. */
-    private final String color;
-    private final PowerShot powerShot;
-
-    /**
-     * Crea un país con su nombre visible y su color.
-     * Solo se usa para definir las constantes de este enum.
-     *
-     * @param displayName nombre del país para mostrar en pantalla
-     * @param color color del país en formato hexadecimal
-     */
-    Country(String displayName, String color, PowerShot powerShot) {
-        this.displayName = displayName;
-        this.color = color;
-        this.powerShot = powerShot;
+    protected Country(String id, String displayName, String color, String flagAsset,
+                      double duration, double baseDamage, double speedX, double speedY,
+                      PlayerStatusEffect effect, double restitution) {
+        this.id=id; this.displayName=displayName; this.color=color; this.flagAsset=flagAsset;
+        this.duration=duration; this.baseDamage=baseDamage; this.speedX=speedX; this.speedY=speedY;
+        this.effect=effect; this.restitution=restitution;
     }
-
-    /**
-     * Devuelve el nombre del país para mostrar en pantalla.
-     *
-     * @return el nombre visible del país
-     */
-    public String displayName() {
-        return displayName;
+    public final String id(){return id;}
+    public final String displayName(){return displayName;}
+    public final String color(){return color;}
+    public final String flagAsset(){return flagAsset;}
+    @Override public final String visualAsset(){return powerAsset();}
+    @Override public final String visualColor(){return powerColor();}
+    protected abstract String powerAsset();
+    protected abstract String powerColor();
+    @Override public final double durationSeconds(){return duration;}
+    @Override public final double damage(){return baseDamage*5.0;}
+    @Override public final double horizontalSpeed(){return speedX;}
+    @Override public final double verticalSpeed(){return speedY;}
+    @Override public final PlayerStatusEffect hitEffect(){return effect;}
+    @Override public final double restitution(){return restitution;}
+    @Override public void applyImpact(Player owner, Player opponent) throws DopoSoccerException {
+        opponent.takeDamage(damage());
+        if (!opponent.stunned()) opponent.applyStatusEffect(hitEffect(), durationSeconds());
     }
-
-    /**
-     * Devuelve el color asociado al país.
-     *
-     * @return el color en formato hexadecimal
-     */
-    public String color() {
-        return color;
-    }
-
-    public PowerShot powerShot() {
-        return powerShot;
-    }
-
-    /**
-     * Representa el país como texto usando su nombre visible,
-     * en lugar del nombre de la constante (por ejemplo, "Corea del Sur"
-     * en vez de "SOUTH_KOREA").
-     *
-     * @return el nombre visible del país
-     */
-    @Override
-    public String toString() {
-        return displayName;
-    }
+    public String name(){return id.toUpperCase(java.util.Locale.ROOT).replace('-', '_');}
+    @Override public String toString(){return displayName;}
 }
