@@ -112,6 +112,17 @@ public final class Ball {
         }
     }
 
+    public void restorePowerShot(Power shot, Player owner, double remaining, boolean effectApplied) {
+        if (shot == null || owner == null) {
+            clearPowerShot();
+            return;
+        }
+        activePowerShot = shot;
+        powerShotOwner = owner;
+        powerShotTime = Math.max(0, remaining);
+        powerEffectApplied = effectApplied;
+    }
+
     public void clearPowerShot() {
         activePowerShot = null;
         powerShotOwner = null;

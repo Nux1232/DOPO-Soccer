@@ -69,3 +69,25 @@
 .nav-button:hover {
     -fx-background-color: linear-gradient(to bottom, #33d6ff, #3385ff);
 }
+/* Tarjetas de modo: menos amontonadas y con aire */
+.mode-card {
+    -fx-background-color: rgba(8, 20, 42, 0.78);
+    -fx-background-radius: 22;
+    -fx-border-color: rgba(255,255,255,0.82);
+    -fx-border-width: 2;
+    -fx-border-radius: 22;
+    -fx-padding: 10;
+    -fx-cursor: hand;
+}
+.mode-card:hover {
+    -fx-background-color: rgba(18, 42, 75, 0.92);
+    -fx-scale-x: 1.025;
+    -fx-scale-y: 1.025;
+}
+.mode-caption {
+    -fx-font-family: "Arial", sans-serif;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 5, 0, 1, 2);
+}

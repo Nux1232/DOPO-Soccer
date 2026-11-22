@@ -2,7 +2,6 @@ package domain.factory;
 
 import domain.DopoSoccer.MatchKind;
 import domain.DopoSoccer.MatchRequest;
-import domain.DopoSoccer.PlayerModeKind;
 import domain.model.entity.Country;
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
@@ -10,6 +9,7 @@ import domain.model.game.GoalGame;
 import domain.model.game.PlayerMode;
 import domain.model.game.TimeGame;
 import domain.model.physics.PhysicsEngine;
+import domain.model.ai.AIProfile;
 
 /** Construye partidos válidos y encapsula la selección de implementación. */
 public final class MatchFactory {
@@ -18,6 +18,11 @@ public final class MatchFactory {
     public static Game create(MatchRequest request) throws DopoSoccerException {
         validate(request);
         PlayerMode mode = PlayerMode.valueOf(request.playerMode().name());
+        try {
+            AIProfile.valueOf(request.aiProfile() == null ? "EXPERT" : request.aiProfile());
+        } catch (IllegalArgumentException exception) {
+            throw new DopoSoccerException("El perfil de máquina seleccionado no existe.");
+        }
         Country first = CountryFactory.create(request.firstCountry());
         Country second = CountryFactory.create(request.secondCountry());
         PhysicsEngine physics = new PhysicsEngine();

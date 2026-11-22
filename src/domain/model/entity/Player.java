@@ -162,6 +162,10 @@ public abstract class Player {
         return kickAnimationTimer > 0;
     }
 
+    public double kickAnimationTimer() {
+        return kickAnimationTimer;
+    }
+
     public PlayerStatusEffect statusEffect() {
         return statusEffect;
     }
@@ -316,14 +320,27 @@ public abstract class Player {
         }
     }
 
-    public void resetForMatch(double x, double y) {
-        goals = 0;
-        health = maxHealth();
-        powerCharge = 0;
-        power = PowerState.NONE;
-        stunTimer = 0;
-        kickAnimationTimer = 0;
-        clearStatusEffect();
-        moveTo(x, y);
+
+    /** Restaura el estado de una partida guardada. */
+    public void restoreMatchState(int goals, double health, double powerCharge, PowerState power,
+            double x, double y, double velocityX, double velocityY, boolean grounded,
+            double kickCooldown, double kickAnimationTimer, double stunTimer, int facingDirection,
+            PlayerStatusEffect statusEffect, double statusEffectTimer) {
+        this.goals = Math.max(0, goals);
+        this.health = Math.max(0, Math.min(maxHealth(), health));
+        this.powerCharge = Math.max(0, Math.min(MAX_POWER_CHARGE, powerCharge));
+        this.power = power == null ? PowerState.NONE : power;
+        this.x = x;
+        this.y = y;
+        this.velocityX = velocityX;
+        this.velocityY = velocityY;
+        this.grounded = grounded;
+        this.kickCooldown = Math.max(0, kickCooldown);
+        this.kickAnimationTimer = Math.max(0, kickAnimationTimer);
+        this.stunTimer = Math.max(0, stunTimer);
+        this.facingDirection = facingDirection == 0 ? 1 : (facingDirection > 0 ? 1 : -1);
+        this.statusEffect = statusEffect == null ? PlayerStatusEffect.NONE : statusEffect;
+        this.statusEffectTimer = Math.max(0, statusEffectTimer);
     }
+
 }

@@ -1,7 +1,6 @@
 package domain.model.entity;
 
 import domain.model.exception.DopoSoccerException;
-import domain.model.game.Game;
 
 /** Base abstracta para personajes: identidad y comportamiento de su poder. */
 public abstract class Country implements Power {

@@ -2,7 +2,6 @@ package presentation.view.gui;
 import presentation.model.MatchSetup;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -30,11 +29,18 @@ public class CharacterSelectionPane extends StackPane {
     private final MatchSetup matchConfig;
     private final Consumer<MatchSetup> onStartMatch;
     private final Runnable onBack;
+    private final Runnable onImprove;
 
     public CharacterSelectionPane(MatchSetup matchConfig, Consumer<MatchSetup> onStartMatch, Runnable onBack) {
+        this(matchConfig, onStartMatch, onBack, () -> {});
+    }
+
+    public CharacterSelectionPane(MatchSetup matchConfig, Consumer<MatchSetup> onStartMatch,
+            Runnable onBack, Runnable onImprove) {
         this.matchConfig = matchConfig;
         this.onStartMatch = onStartMatch;
         this.onBack = onBack;
+        this.onImprove = onImprove;
         setupUI();
     }
 
@@ -79,10 +85,10 @@ public class CharacterSelectionPane extends StackPane {
             @Override
             public String toString(MatchSetup.Type type) {
                 if (type == null) return "";
-                return switch (type) {
-                    case GOALS -> "GOLES";
-                    case TIME -> "POR TIEMPO";
-                };
+                if (type == MatchSetup.Type.GOALS) {
+                    return "GOLES";
+                }
+                return "POR TIEMPO";
             }
 
             @Override
@@ -230,10 +236,30 @@ public class CharacterSelectionPane extends StackPane {
         VBox firstCard = createPlayerCard("JUGADOR 1", matchConfig.firstCountry(), true
         );
 
-        VBox secondCard = createPlayerCard("JUGADOR 2", matchConfig.secondCountry(), false
-        );
+        String secondHeading = "PLAYER_VS_MACHINE".equals(matchConfig.playerMode())
+                ? "MÁQUINA" : "JUGADOR 2";
+        VBox secondCard = createPlayerCard(secondHeading, matchConfig.secondCountry(), false);
 
         HBox playersContainer = new HBox(22, firstCard, secondCard);
+
+        VBox aiProfileBox = new VBox(6);
+        Label aiProfileLabel = new Label("PERFIL DE LA MÁQUINA");
+        aiProfileLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
+        ComboBox<String> aiProfileSelector = new ComboBox<>();
+        aiProfileSelector.getItems().addAll("TORPE", "OFENSIVA", "DEFENSIVA", "EXPERTA");
+        aiProfileSelector.setValue("EXPERTA");
+        aiProfileSelector.setPrefWidth(220);
+        aiProfileSelector.valueProperty().addListener((obs, oldValue, newValue) -> {
+            if (newValue != null) {
+                matchConfig.aiProfile(newValue.equals("TORPE") ? "CLUMSY"
+                        : newValue.equals("OFENSIVA") ? "OFFENSIVE"
+                        : newValue.equals("DEFENSIVA") ? "DEFENSIVE" : "EXPERT");
+            }
+        });
+        aiProfileBox.getChildren().addAll(aiProfileLabel, aiProfileSelector);
+        aiProfileBox.setAlignment(Pos.CENTER);
+        aiProfileBox.setVisible("PLAYER_VS_MACHINE".equals(matchConfig.playerMode()));
+        aiProfileBox.setManaged(aiProfileBox.isVisible());
 
         Label controlsTitle = new Label("¿CÓMO JUGAR?");
         controlsTitle.setStyle(
@@ -252,7 +278,7 @@ public class CharacterSelectionPane extends StackPane {
         );
 
         Label player2Controls = new Label(
-                "JUGADOR 2   ← / →: Moverse     ↑: Saltar     ENTER: Patear     SHIFT: Poder"
+                "JUGADOR 2 / MÁQUINA   ← / →: Moverse     ↑: Saltar     ENTER: Patear     SHIFT: Poder"
         );
         player2Controls.setStyle(
                 "-fx-text-fill: #8ecbff;" +
@@ -260,11 +286,28 @@ public class CharacterSelectionPane extends StackPane {
                         "-fx-font-weight: bold;"
         );
 
+        Label resolutionLabel = new Label("RESOLUCIÓN DE CANCHA");
+        resolutionLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
+        ComboBox<MatchSetup.Resolution> resolutionSelector = new ComboBox<>();
+        resolutionSelector.getItems().setAll(MatchSetup.Resolution.values());
+        resolutionSelector.setValue(matchConfig.resolution());
+        resolutionSelector.setConverter(new StringConverter<>() {
+            @Override public String toString(MatchSetup.Resolution value) {
+                if (value == null) return "";
+                return value.width() + " × " + value.height();
+            }
+            @Override public MatchSetup.Resolution fromString(String text) { return null; }
+        });
+        resolutionSelector.valueProperty().addListener((obs, oldValue, value) -> matchConfig.resolution(value));
+        VBox resolutionBox = new VBox(5, resolutionLabel, resolutionSelector);
+        resolutionBox.setAlignment(Pos.CENTER);
+
         VBox controlsBox = new VBox(
                 10,
                 controlsTitle,
                 player1Controls,
-                player2Controls
+                player2Controls,
+                resolutionBox
         );
 
         controlsBox.setAlignment(Pos.CENTER);
@@ -320,6 +363,10 @@ public class CharacterSelectionPane extends StackPane {
 
         startButton.setOnAction(event -> startMatch());
 
+        Button improveButton = new Button("MEJORAR ESTADÍSTICAS");
+        improveButton.setPrefWidth(260);
+        improveButton.setOnAction(event -> onImprove.run());
+
         Button backButton = new Button("VOLVER AL MENÚ PRINCIPAL");
 
         backButton.setPrefWidth(230);
@@ -341,8 +388,8 @@ public class CharacterSelectionPane extends StackPane {
         VBox content = new VBox(
                 10, title,
                 subtitle, matchSettings,
-                playersContainer, controlsBox,
-                startButton, backButton
+                aiProfileBox, playersContainer, controlsBox,
+                improveButton, startButton, backButton
         );
 
         content.setAlignment(Pos.CENTER);

@@ -5,6 +5,8 @@ import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.scene.layout.Pane;
+import javafx.stage.FileChooser;
+import java.io.File;
 import javafx.stage.Stage;
 import java.util.Objects;
 import presentation.model.GameSnapshot;
@@ -21,14 +23,13 @@ public class DopoSoccerGUI extends Application {
 
     private Stage primaryStage;
     private DopoSoccer dopoSoccer;
-    private MatchSetup matchConfig;
     private GamePlayPane activeGamePane;
+    private MatchSetup matchConfig;
 
     @Override
     public void start(Stage stage) {
         primaryStage = stage;
         dopoSoccer = new DopoSoccer();
-        matchConfig = null;
         stage.setTitle(APP_TITLE);
         Image icon = new Image(Objects.requireNonNull(
                 getClass().getResourceAsStream(APP_ICON), "No se encontró el icono de DOPO-SOCCER"));
@@ -40,35 +41,113 @@ public class DopoSoccerGUI extends Application {
 
     private void showMainMenu() {
         if (dopoSoccer != null) dopoSoccer.reset();
-        navigate(new MainMenuPane(this::showCharacterSelection));
+        navigate(new MainMenuPane(this::showCharacterSelection, this::loadSavedMatch));
     }
 
     private void showCharacterSelection(String mode) {
         matchConfig = new MatchSetup(mode);
-        navigate(new CharacterSelectionPane(matchConfig, this::startMatch, this::showMainMenu));
+        navigate(new CharacterSelectionPane(matchConfig, this::startMatch, this::showMainMenu, this::showUpgrades));
+    }
+
+    private void showUpgrades() {
+        javafx.scene.control.ChoiceDialog<String> choice = new javafx.scene.control.ChoiceDialog<>(
+                "Jugador 1 - Speed", java.util.Arrays.asList(
+                "Jugador 1 - Speed", "Jugador 1 - Kick", "Jugador 1 - Jump", "Jugador 1 - Survival",
+                "Jugador 2 - Speed", "Jugador 2 - Kick", "Jugador 2 - Jump", "Jugador 2 - Survival"));
+        choice.setTitle("Mejoras");
+        choice.setHeaderText("Mejora estadísticas con tus puntos");
+        domain.model.persistence.PlayerProfile profile1 = dopoSoccer.loadSavedProfile("player1");
+        domain.model.persistence.PlayerProfile profile2 = dopoSoccer.loadSavedProfile("player2");
+        choice.setContentText("Puntos J1: " + profile1.points() + " | Puntos J2: " + profile2.points()
+                + "\nSelecciona la mejora que quieres comprar:");
+        java.util.Optional<String> selected = choice.showAndWait();
+        if (!selected.isPresent()) return;
+        String option = selected.get();
+        String slot = option.startsWith("Jugador 1") ? "player1" : "player2";
+        String stat = option.substring(option.indexOf(" - ") + 3).toLowerCase();
+        try {
+            domain.model.persistence.PlayerProfile profile = dopoSoccer.improveSavedProfile(slot, stat);
+            javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+                    javafx.scene.control.Alert.AlertType.INFORMATION);
+            alert.setTitle("Mejora comprada");
+            alert.setHeaderText("¡Estadística mejorada!");
+            alert.setContentText("Puntos restantes: " + profile.points()
+                    + "\nCosto de la siguiente mejora: " + profile.nextUpgradeCost());
+            alert.showAndWait();
+        } catch (Exception exception) {
+            showError("No se pudo comprar la mejora", exception.getMessage());
+        }
     }
 
     private void startMatch(MatchSetup config) {
         try {
+            primaryStage.setWidth(config.resolution().width());
+            primaryStage.setHeight(config.resolution().height());
             dopoSoccer.startMatch(new DopoSoccer.MatchRequest(
                     DopoSoccer.PlayerModeKind.valueOf(config.playerMode()),
                     DopoSoccer.MatchKind.valueOf(config.type().name()),
                     config.firstCountry().name(),
                     config.secondCountry().name(),
-                    config.goalLimit(), config.durationSeconds()));
+                    config.goalLimit(), config.durationSeconds(), config.aiProfile()));
             activeGamePane = new GamePlayPane(
                     toPresentationSnapshot(dopoSoccer.snapshot()),
                     (first, second, delta) -> {
                         dopoSoccer.updateMatch(toDomainActions(first), toDomainActions(second), delta);
                         return toPresentationSnapshot(dopoSoccer.snapshot());
                     },
-                    this::showMainMenu);
+                    this::showMainMenu,
+                    this::saveMatch);
             navigate(activeGamePane);
         } catch (Exception exception) {
             showError("No se pudo iniciar el partido", exception.getMessage());
         }
     }
 
+
+    private void saveMatch() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Guardar partida DOPO-Soccer");
+        chooser.setInitialFileName("partida-dopo.properties");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Partida DOPO-Soccer (*.properties)", "*.properties"));
+        File file = chooser.showSaveDialog(primaryStage);
+        if (file == null) return;
+        try {
+            dopoSoccer.saveMatch(file.toPath());
+            javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+                    javafx.scene.control.Alert.AlertType.INFORMATION);
+            alert.setTitle(APP_TITLE);
+            alert.setHeaderText("Partida guardada");
+            alert.setContentText("Archivo:\n" + file.getAbsolutePath());
+            alert.show();
+        } catch (Exception exception) {
+            showError("No se pudo guardar la partida", exception.getMessage());
+        }
+    }
+
+    private void loadSavedMatch() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Abrir partida DOPO-Soccer");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Partida DOPO-Soccer (*.properties)", "*.properties"));
+        File file = chooser.showOpenDialog(primaryStage);
+        if (file == null) return;
+        try {
+            dopoSoccer.loadMatch(file.toPath());
+            showLoadedMatch();
+        } catch (Exception exception) {
+            showError("No se pudo cargar la partida", exception.getMessage());
+        }
+    }
+
+    private void showLoadedMatch() {
+        activeGamePane = new GamePlayPane(
+                toPresentationSnapshot(dopoSoccer.snapshot()),
+                (first, second, delta) -> {
+                    dopoSoccer.updateMatch(toDomainActions(first), toDomainActions(second), delta);
+                    return toPresentationSnapshot(dopoSoccer.snapshot());
+                },
+                this::showMainMenu, this::saveMatch);
+        navigate(activeGamePane);
+    }
 
     private DopoSoccer.PlayerActions toDomainActions(PlayerControls controls) {
         return new DopoSoccer.PlayerActions(controls.left(), controls.right(), controls.jump(), controls.kick(), controls.power());
@@ -77,14 +156,14 @@ public class DopoSoccerGUI extends Application {
     private GameSnapshot toPresentationSnapshot(DopoSoccer.MatchSnapshot state) {
         return new GameSnapshot(state.width(), state.height(), state.groundY(), state.modeDescription(),
                 state.finished(), state.winner(), toPresentationPlayer(state.firstPlayer()),
-                toPresentationPlayer(state.secondPlayer()), state.ballX(), state.ballY(), state.ballRadius(),
+                toPresentationPlayer(state.secondPlayer()), state.machineOpponent(), state.ballX(), state.ballY(), state.ballRadius(),
                 state.activePowerShot(), state.powerShotAsset(), state.powerShotColor(),
                 state.powerShotDuration(), state.powerShotElapsed());
     }
 
     private PlayerSnapshot toPresentationPlayer(DopoSoccer.PlayerSnapshot player) {
         return new PlayerSnapshot(player.countryName(), player.jerseyColor(), player.x(), player.y(),
-                player.goals(), player.health(), player.maxHealth(), player.powerCharge(),
+                player.goals(), player.health(), player.maxHealth(), player.powerCharge(), player.points(),
                 player.facingDirection(), player.kicking(), player.stunned(),
                 "AURA".equals(player.power()), player.statusEffect());
     }

@@ -29,17 +29,22 @@ public final class GamePlayPane extends BorderPane {
 
     private final GameUpdateHandler onUpdate;
     private final Runnable onBack;
+    private final Runnable onSave;
     private final GameRenderer renderer = new GameRenderer();
     private final PlayerEffectsLayer effectsLayer = new PlayerEffectsLayer();
     private final Canvas canvas = new Canvas();
-    private final AnimationTimer animationTimer;
+    private AnimationTimer animationTimer;
+    private boolean paused = false;
     private GameSnapshot snapshot;
     private long previousFrame;
 
-    public GamePlayPane(GameSnapshot initialSnapshot, GameUpdateHandler onUpdate, Runnable onBack) {
+    public GamePlayPane(GameSnapshot initialSnapshot, GameUpdateHandler onUpdate, Runnable onBack) { this(initialSnapshot, onUpdate, onBack, () -> {}); }
+
+    public GamePlayPane(GameSnapshot initialSnapshot, GameUpdateHandler onUpdate, Runnable onBack, Runnable onSave) {
         this.snapshot = initialSnapshot;
         this.onUpdate = onUpdate;
         this.onBack = onBack;
+        this.onSave = onSave;
         setStyle("-fx-background-color: #edf3f5;");
 
         StackPane gameArea = new StackPane(canvas, effectsLayer);
@@ -48,13 +53,34 @@ public final class GamePlayPane extends BorderPane {
         canvas.heightProperty().bind(gameArea.heightProperty());
         setCenter(gameArea);
 
+        javafx.scene.control.Button pauseButton = new javafx.scene.control.Button("Pausar");
+        pauseButton.setFocusTraversable(false);
+        pauseButton.setOnAction(event -> {
+            if (!paused) {
+                animationTimer.stop();
+                paused = true;
+                keyboard.clear();
+                pauseButton.setText("Continuar");
+            } else {
+                previousFrame = 0;
+                keyboard.clear();
+                paused = false;
+                animationTimer.start();
+                pauseButton.setText("Pausar");
+                requestFocus();
+            }
+        });
+        javafx.scene.control.Button saveButton = new javafx.scene.control.Button("Guardar partida");
+        saveButton.setFocusTraversable(false);
+        saveButton.setOnAction(event -> onSave.run());
         javafx.scene.control.Button menuButton = new javafx.scene.control.Button("Volver al menú");
         menuButton.setFocusTraversable(false);
         menuButton.setOnAction(event -> { stop(); onBack.run(); });
         HBox footer = new HBox(
                 new javafx.scene.control.Label("J1: A / D mover · W saltar · F patear · G poder"),
-                new javafx.scene.control.Label("J2: ← / → mover · ↑ saltar · Enter patear · Shift poder"),
-                menuButton);
+                new javafx.scene.control.Label(snapshot.machineOpponent()
+                        ? "J2: MÁQUINA" : "J2: ← / → mover · ↑ saltar · Enter patear · Shift poder"),
+                pauseButton, saveButton, menuButton);
         footer.setAlignment(Pos.CENTER); footer.setSpacing(22); footer.setPadding(new Insets(12));
         footer.setStyle("-fx-background-color: #edf3f5; -fx-font-size: 12px;");
         setBottom(footer);
@@ -72,12 +98,16 @@ public final class GamePlayPane extends BorderPane {
                 try {
                     snapshot = onUpdate.update(firstPlayerControls(), secondPlayerControls(), delta);
                     if (snapshot.finished()) {
-                        animationTimer.stop(); keyboard.clear();
+                        animationTimer.stop(); paused = true; keyboard.clear();
                         String result = snapshot.winner() == 0 ? "¡EMPATE!" :
                                 "¡GANA " + (snapshot.winner() == 1 ? snapshot.firstPlayer().countryName() : snapshot.secondPlayer().countryName()) + "!";
                         Alert alert = new Alert(Alert.AlertType.INFORMATION);
                         alert.setTitle("DOPO-SOCCER"); alert.setHeaderText("¡PARTIDO TERMINADO!");
-                        alert.setContentText(result + "\n\nMarcador final: " + snapshot.firstPlayer().goals() + " - " + snapshot.secondPlayer().goals());
+                        String pointsMessage = snapshot.winner() == 1 ? "\nPuntos: J1 +100 · J2 +25"
+                                : snapshot.winner() == 2 ? "\nPuntos: J1 +25 · J2 +100" : "\nPuntos: +25 para ambos";
+                        alert.setContentText(result + "\n\nMarcador final: "
+                                + snapshot.firstPlayer().goals() + " - " + snapshot.secondPlayer().goals()
+                                + pointsMessage);
                         alert.show(); render(); return;
                     }
                 } catch (Exception exception) {
@@ -92,7 +122,7 @@ public final class GamePlayPane extends BorderPane {
         animationTimer.start();
     }
 
-    public void stop() { animationTimer.stop(); keyboard.clear(); }
+    public void stop() { animationTimer.stop(); paused = true; keyboard.clear(); }
 
     private void render() {
         if (snapshot == null) return;

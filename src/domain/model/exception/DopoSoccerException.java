@@ -11,16 +11,11 @@ public class DopoSoccerException extends RuntimeException {
     public static final String INVALID_GOAL_LIMIT = "El límite de goles debe ser mayor que cero.";
     public static final String INVALID_MATCH_DURATION = "La duración del partido debe ser mayor que cero.";
     public static final String INVALID_PROFILE = "El perfil de jugador no es válido.";
-    public static final String INVALID_PLAYER = "El jugador debe ser 1 o 2.";
     public static final String INVALID_STAT = "La estadística solicitada no existe.";
-    public static final String NO_ACTIVE_MATCH = "No hay un partido activo.";
     public static final String INVALID_COUNTRY = "El país solicitado no está registrado.";
-    public static final String INVALID_COUNTRY_PROVIDER = "El proveedor de país no es válido.";
     public static final String INVALID_PROFILE_SLOT = "El nombre del perfil no es válido.";
     public static final String PROFILE_READ_ERROR = "No se pudo leer el perfil guardado.";
     public static final String PROFILE_SAVE_ERROR = "No se pudo guardar el perfil.";
-    public static final String INVALID_PHYSICS_CONFIG = "La configuración física no es válida.";
-    public static final String INVALID_DEPENDENCIES = "Las dependencias del motor son obligatorias.";
 
     public DopoSoccerException(String message) {
         super(message);

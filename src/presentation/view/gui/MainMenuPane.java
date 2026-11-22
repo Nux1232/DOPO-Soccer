@@ -3,13 +3,14 @@ package presentation.view.gui;
 
 
 import javafx.geometry.Pos;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.Region;
+import javafx.scene.control.Label;
 import javafx.scene.text.Text;
 import java.util.function.Consumer;
 
@@ -18,9 +19,11 @@ public class MainMenuPane extends StackPane {
     private static final String IMAGES_PATH = "/resources/Images/";
 
     private final Consumer<String> onModeSelected;
+    private final Runnable onLoadMatch;
 
-    public MainMenuPane(Consumer<String> onModeSelected) {
+    public MainMenuPane(Consumer<String> onModeSelected, Runnable onLoadMatch) {
         this.onModeSelected = onModeSelected;
+        this.onLoadMatch = onLoadMatch;
         setupUI();
     }
 
@@ -43,20 +46,21 @@ public class MainMenuPane extends StackPane {
         Text title = new Text("DOPO-SOCCER");
         title.getStyleClass().add("game-title");
 
-        Text subtitle = new Text("SELECCIONA MODO DE JUEGO");
+        Text subtitle = new Text("ELIGE TU PARTIDO");
         subtitle.getStyleClass().add("subtitle");
 
         // Jugador vs Jugador
         Image pvpImage = new Image(getClass().getResourceAsStream(IMAGES_PATH + "pvp_banner.png"));
 
         ImageView pvpGraphic = new ImageView(pvpImage);
-        pvpGraphic.setFitWidth(240);
-        pvpGraphic.setFitHeight(160);
+        pvpGraphic.setFitWidth(320);
+        pvpGraphic.setFitHeight(190);
         pvpGraphic.setPreserveRatio(true);
 
         Button pvpButton = new Button();
         pvpButton.setGraphic(pvpGraphic);
-        pvpButton.getStyleClass().add("card-button-pvp");
+        pvpButton.getStyleClass().add("mode-card");
+        pvpButton.setPrefSize(340, 220);
 
         pvpButton.setOnAction(e ->
                 handleSelectMode("PLAYER_VS_PLAYER")
@@ -66,42 +70,49 @@ public class MainMenuPane extends StackPane {
         Image pvAiImage = new Image(getClass().getResourceAsStream(IMAGES_PATH + "pvai_banner.png"));
 
         ImageView pvAiGraphic = new ImageView(pvAiImage);
-        pvAiGraphic.setFitWidth(240);
-        pvAiGraphic.setFitHeight(160);
+        pvAiGraphic.setFitWidth(320);
+        pvAiGraphic.setFitHeight(190);
         pvAiGraphic.setPreserveRatio(true);
 
         Button pvAiButton = new Button();
         pvAiButton.setGraphic(pvAiGraphic);
-        pvAiButton.getStyleClass().add("card-button-disabled");
+        pvAiButton.getStyleClass().add("mode-card");
+        pvAiButton.setPrefSize(340, 220);
 
-        // Ahora está habilitado para mostrar el aviso.
+        // El modo contra máquina ya está disponible.
         pvAiButton.setDisable(false);
 
-        pvAiButton.setOnAction(e -> showUnderConstruction());
+        pvAiButton.setOnAction(e -> handleSelectMode("PLAYER_VS_MACHINE"));
 
-        HBox modeContainer = new HBox(30, pvpButton, pvAiButton);
+        VBox pvpCard = new VBox(10, pvpButton, new Label("DOS JUGADORES · MISMO TECLADO"));
+        pvpCard.setAlignment(Pos.CENTER);
+        pvpCard.getStyleClass().add("mode-caption");
+        VBox aiCard = new VBox(10, pvAiButton, new Label("4 PERFILES DE DIFICULTAD"));
+        aiCard.setAlignment(Pos.CENTER);
+        aiCard.getStyleClass().add("mode-caption");
+        HBox modeContainer = new HBox(28, pvpCard, aiCard);
         modeContainer.setAlignment(Pos.CENTER);
 
-        // Opciones
-        Button optionsButton = new Button("OPCIONES");
-        optionsButton.getStyleClass().add("nav-button");
-        optionsButton.setOnAction(event -> showUnderConstruction());
-
         // Salir
+        Button loadButton = new Button("CARGAR PARTIDA");
+        loadButton.getStyleClass().add("nav-button");
+        loadButton.setDisable(false);
+        loadButton.setOnAction(e -> onLoadMatch.run());
+
         Button exitButton = new Button("SALIR");
         exitButton.getStyleClass().add("nav-button");
         exitButton.setOnAction(e -> System.exit(0));
 
         HBox footerContainer = new HBox(
                 20,
-                optionsButton,
+                loadButton,
                 exitButton
         );
 
         footerContainer.setAlignment(Pos.CENTER);
 
         VBox contentBox = new VBox(
-                25,
+                18,
                 title,
                 subtitle,
                 modeContainer,
@@ -109,6 +120,8 @@ public class MainMenuPane extends StackPane {
         );
 
         contentBox.setAlignment(Pos.CENTER);
+        contentBox.setMaxWidth(Region.USE_PREF_SIZE);
+        contentBox.setStyle("-fx-padding: 24;");
 
         this.getChildren().addAll(bgView, contentBox);
     }
@@ -118,12 +131,4 @@ public class MainMenuPane extends StackPane {
         onModeSelected.accept(mode);
     }
 
-    private void showUnderConstruction() {
-
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("DOPO-SOCCER");
-        alert.setHeaderText("Modalidad en construcción");
-        alert.setContentText("Esta modalidad todavía no está disponible.");
-        alert.showAndWait();
-    }
 }

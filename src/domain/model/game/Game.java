@@ -78,6 +78,12 @@ public class Game {
         return ball;
     }
 
+    public double kickoffDelaySeconds() { return kickoffDelay; }
+
+    public void restoreKickoffDelay(double seconds) { kickoffDelay = Math.max(0, seconds); }
+
+    public void restoreLifecycle(int winner) { if (winner >= 0 && winner <= 2) lifecycle.finish(winner); }
+
     public boolean kickoffDelayActive() {
         return kickoffDelay > 0;
     }
@@ -140,9 +146,6 @@ public class Game {
         return lifecycle.winner();
     }
 
-    public MatchLifecycle.State lifecycleState() {
-        return lifecycle.state();
-    }
 
     protected void finishMatch(int winner) {
         lifecycle.finish(winner);

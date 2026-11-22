@@ -52,6 +52,13 @@ public final class TimeGame extends Game {
         }
     }
 
+    public void restoreClock(double remaining, boolean suddenDeath) {
+        clock.restoreRemaining(remaining);
+        this.suddenDeath = suddenDeath;
+    }
+
+    public double remainingExactSeconds() { return clock.remainingExactSeconds(); }
+
     public int remainingSeconds() {
         return clock.remainingSeconds();
     }
