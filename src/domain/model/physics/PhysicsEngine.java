@@ -23,7 +23,7 @@ import org.dyn4j.world.World;
  */
 public class PhysicsEngine implements PhysicsSimulation {
 
-    private final PhysicsConfig config;
+    private static PhysicsConfig config;
     private final double kickRange;
 
     /** Mundo físico de Dyn4j y cuerpos dinámicos. */
