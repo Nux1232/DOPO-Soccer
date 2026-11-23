@@ -330,3 +330,196 @@ Uno de los aprendizajes más importantes fue comprender que implementar una func
 Finalmente, reconocemos que todavía falta realizar una revisión completa del diagrama de clases y actualizar correctamente los diagramas de secuencia para que representen los flujos reales de la implementación. También queda pendiente terminar de evaluar y corregir las dependencias entre Presentation y Domain.
 
 A pesar de estos pendientes, el proyecto cuenta con una base funcional y una estructura sobre la cual se pueden seguir incorporando mejoras sin tener que reconstruir el videojuego desde cero.
+
+# DOPO-SOCCER — Retrospectiva Entrega 3
+
+## 1. Tiempo de trabajo
+
+Completar con las horas reales registradas por cada integrante.
+
+| Integrante | Horas Entrega 3 |
+|---|---|
+| Samuel Infante | 22 Horas |
+| Juan Pablo Cuervo | 22 Horas |
+
+El tiempo de esta etapa se distribuyó entre refactorización, integración de funcionalidades, depuración, pruebas manuales, persistencia y documentación.
+
+---
+
+## 2. Estado actual del laboratorio
+
+El proyecto mantiene una base funcional de fútbol arcade 2D. En esta etapa se priorizó consolidar la arquitectura, conectar funcionalidades que estaban incompletas y hacer el código más sencillo de comprender, mantener y extender.
+
+### 2.1 Trabajo realizado
+
+- Separación incremental entre Domain y Presentation y centralización de operaciones de juego mediante una fachada de dominio (`DopoSoccer`).
+- Implementación de snapshots/modelos de lectura para que la interfaz y el renderizado no dependan de entidades mutables internas.
+- Coordinación de navegación desde `DopoSoccerGUI` y comunicación de vistas mediante callbacks.
+- Revisión de `Game`, `GoalGame` y `TimeGame`. La modalidad por tiempo debe entrar en muerte súbita cuando el reloj termina empatado y continuar hasta el siguiente gol.
+- Modelo extensible de jugadores y países: `Player` abstracto con `LPlayer` y `RPlayer`; `Country` abstracto con países concretos; `Power` como interfaz.
+- Integración de Player vs Machine y perfiles de IA mediante `AIProfile`.
+- Persistencia de partidas y perfiles, con flujo de guardar y abrir conectado a la interfaz.
+- Uso de `Properties` y streams para guardar datos explícitos y reconstruir la partida, sin utilizar serialización nativa `Serializable`.
+- Revisión y simplificación de factories, evitando mecanismos demasiado complejos para el alcance del proyecto.
+- Limpieza de métodos y estructuras redundantes identificados, procurando conservar los métodos que tienen uso indirecto como callbacks.
+- Mejoras de UI: selección PVP/PVM, recursos gráficos, distribución de paneles y ajustes de configuración y resolución.
+- Elaboración y revisión de diagramas de clases y secuencia para documentar los flujos principales.
+
+### 2.2 Pendientes y validación
+
+- Ejecutar `mvn clean test` y la aplicación JavaFX en la última versión integrada.
+- Probar PVP, PVM y todos los perfiles de IA.
+- Validar guardar, cerrar, abrir y restaurar marcador, reloj, jugadores, balón, poderes, estados y configuración.
+- Revisar que los diagramas reflejen exactamente la rama que se entrega.
+- Completar pruebas automatizadas para muerte súbita, poderes, daño, stun, recompensas y persistencia.
+- Completar las horas reales y evidencias de prueba.
+
+---
+
+## 3. Práctica XP más útil
+
+La refactorización incremental junto con la integración y las pruebas frecuentes fue la práctica más útil. Se revisaron responsabilidades y contratos antes de seguir agregando funcionalidades, lo que permitió detectar errores de integración en etapas tempranas.
+
+Como mejora, estas comprobaciones manuales deben complementarse con pruebas automatizadas para reglas críticas.
+
+---
+
+## 4. Mayor logro
+
+El mayor logro fue consolidar una estructura más clara para coordinar el juego y conectar IA, persistencia y extensibilidad.
+
+La fachada de dominio, los snapshots y la especialización de las modalidades permiten reducir dependencias y separar las reglas de la presentación. También se ajustó la regla de empate en `TimeGame` para continuar en muerte súbita.
+
+---
+
+## 5. Mayor problema técnico y resolución
+
+El problema más importante fue integrar cambios de arquitectura con vistas y componentes que aún dependían de detalles internos. Esto ocasionó errores de compilación y referencias que hubo que corregir al conectar configuración, navegación, gameplay y persistencia.
+
+Se abordó de forma incremental, verificando contratos y manteniendo un coordinador claro.
+
+Guardar y cargar también exigió decidir qué estado persistir y cómo reconstruirlo, en vez de serializar objetos completos.
+
+---
+
+## 6. Trabajo en equipo y compromisos
+
+Se mantuvo la colaboración sobre el código existente, revisión de errores y priorización de correcciones antes de nuevas funcionalidades.
+
+### Compromisos
+
+- Definir clases afectadas y contratos antes de cambios transversales.
+- Realizar commits pequeños, descriptivos y probar antes de integrar.
+- Confirmar la versión base del proyecto antes de reemplazar archivos.
+- Actualizar UML junto con los cambios de arquitectura.
+- Asegurar que ambos integrantes puedan explicar IA, persistencia, reglas y capas.
+- Reservar tiempo de entrega para pruebas y documentación.
+
+---
+
+## 7. Referencias
+
+1. Escuela Colombiana de Ingeniería. (2026-2). *Proyecto final de Desarrollo Orientado por Objetos: DOPO-Soccer* (enunciado).
+2. Oracle. (s. f.). *Java Documentation*. https://docs.oracle.com/en/java/
+3. OpenJFX. (s. f.). *JavaFX Documentation*. https://openjfx.io/
+4. Dyn4j. (s. f.). *dyn4j Documentation*. https://dyn4j.org/
+5. JUnit. (s. f.). *JUnit 5 User Guide*. https://junit.org/junit5/docs/current/user-guide/
+6. Git. (s. f.). *Git Documentation*. https://git-scm.com/doc
+
+---
+
+## 8. Diagramas de clases
+
+Los diagramas muestran las relaciones y responsabilidades principales. Se omiten detalles secundarios para mantener su legibilidad. Deben contrastarse con el código definitivo.
+
+### 8.1 Domain
+
+Relaciones principales:
+
+- `GoalGame` y `TimeGame` heredan de `Game`.
+- `LPlayer` y `RPlayer` heredan de `Player`.
+- Los países concretos heredan de `Country` e implementan `Power`.
+- `Game` mantiene jugadores y balón.
+- `DopoSoccer` coordina la creación, el partido activo, la IA y la persistencia.
+
+### 8.2 Presentation
+
+`DopoSoccerGUI` coordina navegación y traduce la configuración de interfaz a solicitudes del dominio.
+
+Las vistas comunican acciones mediante callbacks. `GamePlayPane` utiliza snapshots y delega input, renderizado y efectos.
+
+---
+
+## 9. Diagramas de secuencia
+
+### 9.1 Configurar e iniciar partido
+
+El usuario selecciona modalidad y configuración. Presentation forma una solicitud; la fachada solicita a `MatchFactory` crear el `Game` y entrega el snapshot inicial.
+
+### 9.2 Ciclo de juego
+
+El timer solicita un frame. Se capturan controles; las acciones y el delta llegan al dominio; se actualizan reglas, IA y física; se genera un snapshot y se renderiza.
+
+### 9.3 Guardar partida
+
+La fachada obtiene el estado y lo convierte a datos persistibles. `MatchSaveStore` escribe `Properties` usando `OutputStream` y devuelve el resultado o error.
+
+### 9.4 Cargar partida
+
+Se lee `Properties` mediante `InputStream`, se parsea y valida, y la fachada reconstruye la partida y devuelve un snapshot para mostrar Gameplay.
+
+### 9.5 Finalizar y recompensar
+
+El dominio evalúa la regla final, determina el ganador, aplica la recompensa una sola vez, persiste el progreso y presenta el resultado.
+
+---
+
+## 10. Decisiones de diseño
+
+### Fachada
+
+`DopoSoccer` ofrece un punto de acceso al dominio y evita que Presentation coordine internamente entidades y servicios.
+
+### Snapshots
+
+La presentación consume una representación de lectura, reduciendo su dependencia de objetos mutables del dominio.
+
+### Herencia y polimorfismo
+
+`Game` comparte comportamiento; `GoalGame` y `TimeGame` especializan condiciones de finalización. `Player` y `Country` abstraen tipos concretos.
+
+### Power como interfaz
+
+Los países implementan el contrato de poder para permitir poderes diferentes sin acoplarse a una única clase.
+
+### Factory simple
+
+`MatchFactory` centraliza la creación de modalidades. La creación de países se mantiene explícita y sencilla, evitando mecanismos excesivamente complejos.
+
+### Persistencia explícita
+
+`Properties` y streams guardan los datos seleccionados. Los datos de guardado se separan de las entidades.
+
+### IA como componente de decisión
+
+`FootballAI` decide acciones usando el estado del partido y un `AIProfile`; no se convierte en una subclase de `Player`.
+
+### Muerte súbita
+
+`TimeGame` permanece activo si el reloj termina empatado y se decide con el siguiente gol.
+
+### Excepciones propias
+
+Las excepciones y el sistema de logging permiten comunicar errores de dominio y registrar información técnica.
+
+---
+
+## 11. Conclusión
+
+En la Entrega 3 el foco pasó de incorporar mecánicas aisladas a consolidar el diseño. Se trabajó en separación de responsabilidades, IA, persistencia, simplificación, limpieza y documentación de conexiones.
+
+La entrega debe cerrarse con compilación y pruebas de aceptación y con UML ajustado a la rama definitiva.
+
+El aprendizaje central es que un diseño orientado a objetos debe facilitar que el sistema se entienda, pruebe y extienda, además de funcionar.
+
+Nos queda trabajo aún por mejorar, los diseños faltan y faltan realizar más pruebas para concluir que el trabajo es bueno.
