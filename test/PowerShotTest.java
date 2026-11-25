@@ -1,4 +1,4 @@
-package tests;
+package test;
 
 import domain.model.entity.Ball;
 import domain.model.entity.Country;
