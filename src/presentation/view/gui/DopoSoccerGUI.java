@@ -8,11 +8,11 @@ import javafx.scene.layout.Pane;
 import javafx.stage.FileChooser;
 import java.io.File;
 import javafx.stage.Stage;
-import java.util.Objects;
 import presentation.model.GameSnapshot;
 import presentation.model.GameSnapshot.PlayerSnapshot;
 import presentation.model.PlayerControls;
 import presentation.model.MatchSetup;
+
 
 /** Punto de composición y coordinador de presentación. Único puente hacia el dominio. */
 public class DopoSoccerGUI extends Application {
@@ -31,9 +31,10 @@ public class DopoSoccerGUI extends Application {
         primaryStage = stage;
         dopoSoccer = new DopoSoccer();
         stage.setTitle(APP_TITLE);
-        Image icon = new Image(Objects.requireNonNull(
-                getClass().getResourceAsStream(APP_ICON), "No se encontró el icono de DOPO-SOCCER"));
-        stage.getIcons().add(icon);
+        var iconUrl = getClass().getResource(APP_ICON);
+        if (iconUrl != null) {
+            stage.getIcons().add(new Image(iconUrl.toExternalForm()));
+        }
         stage.setMinWidth(WINDOW_WIDTH);
         stage.setMinHeight(WINDOW_HEIGHT);
         showMainMenu();
