@@ -36,7 +36,7 @@ public class CharacterSelectionPane extends StackPane {
     }
 
     public CharacterSelectionPane(MatchSetup matchConfig, Consumer<MatchSetup> onStartMatch,
-            Runnable onBack, Runnable onImprove) {
+                                  Runnable onBack, Runnable onImprove) {
         this.matchConfig = matchConfig;
         this.onStartMatch = onStartMatch;
         this.onBack = onBack;
@@ -45,11 +45,22 @@ public class CharacterSelectionPane extends StackPane {
     }
 
     private void setupUI() {
-        Image background = new Image(getClass().getResourceAsStream(BACKGROUND_PATH));
-        ImageView backgroundView = new ImageView(background);
-        backgroundView.setPreserveRatio(false);
-        backgroundView.fitWidthProperty().bind(widthProperty());
-        backgroundView.fitHeightProperty().bind(heightProperty());
+        // Fondo ilustrado + capa oscura para conservar la legibilidad.
+        ImageView background = new ImageView();
+        var backgroundResource = getClass().getResource(BACKGROUND_PATH);
+        if (backgroundResource != null) {
+            background.setImage(new Image(backgroundResource.toExternalForm(), true));
+        } else {
+            System.err.println("No se encontró background_selection.png: " + BACKGROUND_PATH);
+        }
+        background.setPreserveRatio(false);
+        background.setSmooth(true);
+        background.fitWidthProperty().bind(widthProperty());
+        background.fitHeightProperty().bind(heightProperty());
+
+        StackPane backgroundTint = new StackPane();
+        backgroundTint.setStyle("-fx-background-color: rgba(3, 12, 30, 0.58);");
+
         Label title = new Label("SELECCIÓN DE PERSONAJES");
 
         title.setStyle(
@@ -240,7 +251,34 @@ public class CharacterSelectionPane extends StackPane {
                 ? "MÁQUINA" : "JUGADOR 2";
         VBox secondCard = createPlayerCard(secondHeading, matchConfig.secondCountry(), false);
 
-        HBox playersContainer = new HBox(22, firstCard, secondCard);
+        HBox playerRow = new HBox(18);
+        playerRow.setAlignment(Pos.CENTER);
+        VBox playerColumn = new VBox(16);
+        playerColumn.setAlignment(Pos.CENTER);
+        StackPane playersContainer = new StackPane(playerRow, playerColumn);
+        playerColumn.setVisible(false);
+        playerColumn.setManaged(false);
+        Runnable layoutPlayers = () -> {
+            boolean narrow = playersContainer.getWidth() < 760;
+            playerRow.getChildren().clear();
+            playerColumn.getChildren().clear();
+            if (narrow) {
+                firstCard.setPrefWidth(Math.max(260, Math.min(520, playersContainer.getWidth() - 35)));
+                secondCard.setPrefWidth(Math.max(260, Math.min(520, playersContainer.getWidth() - 35)));
+                playerColumn.getChildren().setAll(firstCard, secondCard);
+            } else {
+                double cardWidth = Math.min(500, (playersContainer.getWidth() - 40) / 2);
+                firstCard.setPrefWidth(cardWidth);
+                secondCard.setPrefWidth(cardWidth);
+                playerRow.getChildren().setAll(firstCard, secondCard);
+            }
+            playerRow.setVisible(!narrow);
+            playerRow.setManaged(!narrow);
+            playerColumn.setVisible(narrow);
+            playerColumn.setManaged(narrow);
+        };
+        playersContainer.widthProperty().addListener((obs, oldWidth, newWidth) -> layoutPlayers.run());
+        playersContainer.setMaxWidth(Double.MAX_VALUE);
 
         VBox aiProfileBox = new VBox(6);
         Label aiProfileLabel = new Label("PERFIL DE LA MÁQUINA");
@@ -414,7 +452,7 @@ public class CharacterSelectionPane extends StackPane {
                         "-fx-border-color: transparent;"
         );
 
-        getChildren().addAll(backgroundView, scrollPane);
+        getChildren().setAll(background, backgroundTint, scrollPane);
         StackPane.setAlignment(scrollPane, Pos.CENTER);
 
     }
@@ -426,9 +464,7 @@ public class CharacterSelectionPane extends StackPane {
                         "-fx-font-weight: 900;" +
                         "-fx-text-fill: white;"
         );
-        Label instruction = new Label(
-                "ELIGE TU PAÍS"
-        );
+        Label instruction = new Label("ELIGE TU PAÍS");
         instruction.setStyle(
                 "-fx-font-size: 12px;" +
                         "-fx-text-fill: #c8d9eb;"
@@ -455,7 +491,6 @@ public class CharacterSelectionPane extends StackPane {
                     }
                 }
         );
-
         ImageView flagView = new ImageView();
         flagView.setFitWidth(58);
         flagView.setFitHeight(38);
@@ -465,12 +500,14 @@ public class CharacterSelectionPane extends StackPane {
         countrySelector.valueProperty().addListener((observable, oldValue, newValue) -> updateFlag(flagView, newValue));
         HBox countryChoice = new HBox(12, flagView, countrySelector);
         countryChoice.setAlignment(Pos.CENTER);
+        countryChoice.setMaxWidth(Double.MAX_VALUE);
+        VBox.setVgrow(countryChoice, javafx.scene.layout.Priority.ALWAYS);
         VBox card = new VBox(16, playerLabel, instruction, countryChoice);
         card.setAlignment(Pos.CENTER);
         card.setPadding(new Insets(15));
-        card.setPrefWidth(330);
-        card.setMinWidth(500);
-        card.setMaxWidth(300);
+        card.setPrefWidth(420);
+        card.setMinWidth(260);
+        card.setMaxWidth(520);
         card.setMinHeight(140);
         card.setStyle(
                 "-fx-background-color: rgba(255,255,255,0.09);" +
@@ -497,9 +534,7 @@ public class CharacterSelectionPane extends StackPane {
         var resource = getClass().getResource("/resources/Images/flags/" + file);
         flagView.setImage(resource == null ? null : new Image(resource.toExternalForm()));
     }
-
     private void startMatch() {
         onStartMatch.accept(matchConfig);
     }
-
 }

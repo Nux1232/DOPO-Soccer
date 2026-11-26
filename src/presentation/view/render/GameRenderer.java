@@ -32,6 +32,7 @@ public final class GameRenderer {
 
     private final Image backgroundImage;
     private final Map<String, Image> powerShotImages = new java.util.HashMap<>();
+    private final Map<String, Image> flagImages = new java.util.HashMap<>();
 
     public GameRenderer() {
         backgroundImage = new Image(
@@ -54,6 +55,20 @@ public final class GameRenderer {
             }
             powerShotImages.put(asset, image);
         }
+        loadFlag("Corea del Sur", "kr.png");
+        loadFlag("South Korea", "kr.png");
+        loadFlag("Camerún", "cm.png");
+        loadFlag("Cameroon", "cm.png");
+        loadFlag("Nigeria", "ng.png");
+        loadFlag("Estados Unidos", "us.png");
+        loadFlag("United States", "us.png");
+        loadFlag("USA", "us.png");
+    }
+
+    private void loadFlag(String country, String filename) {
+        String path = "/resources/Images/flags/" + filename;
+        var stream = getClass().getResourceAsStream(path);
+        if (stream != null) flagImages.put(country.toLowerCase(java.util.Locale.ROOT), new Image(stream));
     }
 
     /**
@@ -63,7 +78,7 @@ public final class GameRenderer {
 
         drawField(graphics, match);
 
-        // Los arcos ya están incluidos en el fondo.
+        drawGoals(graphics, match);
         drawPlayer(graphics, match.firstPlayer(), match.groundY());
         drawPlayer(graphics, match.secondPlayer(), match.groundY());
 
@@ -94,6 +109,41 @@ public final class GameRenderer {
                 match.width(),
                 match.height()
         );
+    }
+
+    /** Arcos independientes del fondo, con escala proporcional a la cancha. */
+    private void drawGoals(GraphicsContext g, GameSnapshot match) {
+        double goalHeight = match.height() * 0.19;
+        double goalWidth = goalHeight * 0.58;
+        double bottom = match.groundY() + 2;
+        drawGoal(g, 8, bottom - goalHeight, goalWidth, goalHeight, false);
+        drawGoal(g, match.width() - goalWidth - 8, bottom - goalHeight, goalWidth, goalHeight, true);
+    }
+
+    private void drawGoal(GraphicsContext g, double x, double y, double w, double h, boolean mirrored) {
+        g.save();
+        if (mirrored) {
+            g.translate(x + w, 0);
+            g.scale(-1, 1);
+            x = 0;
+        }
+        // Net behind the frame
+        g.setStroke(Color.rgb(225, 245, 255, 0.42));
+        g.setLineWidth(1.0);
+        for (int i = 1; i < 7; i++) g.strokeLine(x + w * i / 7.0, y + 5, x + w * i / 7.0, y + h);
+        for (int i = 1; i < 9; i++) g.strokeLine(x + 2, y + h * i / 9.0, x + w, y + h * i / 9.0);
+        // Depth and white posts
+        g.setStroke(Color.rgb(24, 39, 55, 0.9));
+        g.setLineWidth(Math.max(5, w * 0.07));
+        g.strokeLine(x + 1, y, x + 1, y + h);
+        g.strokeLine(x + w, y, x + w, y + h);
+        g.strokeLine(x + 1, y, x + w, y);
+        g.setStroke(Color.WHITE);
+        g.setLineWidth(Math.max(3, w * 0.045));
+        g.strokeLine(x + 3, y + 2, x + 3, y + h);
+        g.strokeLine(x + w - 2, y + 2, x + w - 2, y + h);
+        g.strokeLine(x + 3, y + 2, x + w - 2, y + 2);
+        g.restore();
     }
 
     /**
@@ -129,6 +179,15 @@ public final class GameRenderer {
                 12
         );
 
+        Image flag = flagFor(player.countryName());
+        if (flag != null) {
+            double fw = 17, fh = 11;
+            graphics.drawImage(flag, -fw / 2, 1, fw, fh);
+            graphics.setStroke(Color.rgb(255,255,255,0.9));
+            graphics.setLineWidth(0.8);
+            graphics.strokeRect(-fw / 2, 1, fw, fh);
+        }
+
         // Cabeza.
         graphics.setFill(Color.web("#f4c49a"));
         graphics.fillOval(
@@ -161,6 +220,17 @@ public final class GameRenderer {
             graphics.strokeLine(13, 20, 16, 29);
         }
         graphics.restore();
+    }
+
+    private Image flagFor(String country) {
+        if (country == null) return null;
+        String key = country.toLowerCase(java.util.Locale.ROOT);
+        for (var entry : flagImages.entrySet()) if (key.contains(entry.getKey())) return entry.getValue();
+        if (key.contains("corea") || key.contains("korea")) return flagImages.get("south korea");
+        if (key.contains("camerun") || key.contains("cameroon")) return flagImages.get("cameroon");
+        if (key.contains("nigeria")) return flagImages.get("nigeria");
+        if (key.contains("estados unidos") || key.contains("united states") || key.contains("usa")) return flagImages.get("usa");
+        return null;
     }
 
     /**

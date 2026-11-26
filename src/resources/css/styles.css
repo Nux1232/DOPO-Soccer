@@ -181,3 +181,7 @@
     -fx-background-color:
             linear-gradient(to bottom, #718ba6, #405b77);
 }
+/* Responsive menu sizing remains controlled by JavaFX width/height bindings. */
+.menu-content { -fx-background-color: transparent; }
+.mode-card { -fx-padding: 8; }
+.mode-artwork { -fx-smooth: true; }
