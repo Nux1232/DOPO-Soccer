@@ -4,9 +4,12 @@ package domain.model.game;
 import domain.model.entity.Ball;
 import domain.model.entity.Country;
 import domain.model.entity.Player;
+import domain.model.entity.LPlayer;
+import domain.model.entity.RPlayer;
 import domain.model.exception.DopoSoccerException;
 import domain.model.physics.PhysicsEngine;
 import domain.model.physics.PhysicsSimulation;
+import domain.model.game.lifecycle.MatchLifecycle;
 
 /**
  * Representa un partido de DOPO-SOCCER.
@@ -22,8 +25,7 @@ public class Game {
     public static final double GOAL_DEPTH = 48.0;
     public static final double GOAL_TOP = 310.0;
     private static final double KICKOFF_DELAY_SECONDS = 1.0;
-    private boolean finished;
-    private int winner; // 1 = Jugador1, 2= Jugador2
+    private final MatchLifecycle lifecycle = new MatchLifecycle();
     private final PlayerMode playerMode;
     private final Player firstPlayer;
     private final Player secondPlayer;
@@ -53,9 +55,9 @@ public class Game {
         }
         this.playerMode = playerMode;
         this.physicsSimulation = physicsSimulation;
-        this.firstPlayer = new Player(firstCountry, WIDTH / 2 - 60);
-        this.secondPlayer = new Player(secondCountry, WIDTH / 2 + 60);
-        this.secondPlayer.setFacingDirection(-1);
+        this.firstPlayer = new LPlayer(firstCountry, WIDTH / 2 - 60);
+        this.secondPlayer = new RPlayer(secondCountry, WIDTH / 2 + 60);
+
         this.ball = new Ball(WIDTH / 2, 160);
         prepareKickoff();
     }
@@ -75,6 +77,12 @@ public class Game {
     public Ball ball() {
         return ball;
     }
+
+    public double kickoffDelaySeconds() { return kickoffDelay; }
+
+    public void restoreKickoffDelay(double seconds) { kickoffDelay = Math.max(0, seconds); }
+
+    public void restoreLifecycle(int winner) { if (winner >= 0 && winner <= 2) lifecycle.finish(winner); }
 
     public boolean kickoffDelayActive() {
         return kickoffDelay > 0;
@@ -110,7 +118,10 @@ public class Game {
         if (firstInput == null || secondInput == null) {
             throw new DopoSoccerException(DopoSoccerException.NULL_CONFIG);
         }
-        if (finished) {
+        if (deltaSeconds < 0) {
+            throw new DopoSoccerException(DopoSoccerException.NEGATIVE_TIME);
+        }
+        if (lifecycle.isFinished()) {
             return;
         }
         physicsSimulation.update(this, firstInput, secondInput, deltaSeconds);
@@ -128,16 +139,16 @@ public class Game {
         }
     }
     public boolean isFinished() {
-        return finished;
+        return lifecycle.isFinished();
     }
 
     public int winner() {
-        return winner;
+        return lifecycle.winner();
     }
 
+
     protected void finishMatch(int winner) {
-        this.finished = true;
-        this.winner = winner;
+        lifecycle.finish(winner);
     }
 
     protected int compareScores() {

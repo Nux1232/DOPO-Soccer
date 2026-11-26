@@ -1,147 +1,301 @@
-
 package presentation.view.gui;
 
-import domain.model.exception.DopoSoccerException;
-import domain.model.game.GameMatchConfig;
-import domain.model.game.PlayerMode;
-import presentation.view.util.ViewNavigator;
-
+import javafx.application.Platform;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 
-public class MainMenuPane extends StackPane {
+import java.io.InputStream;
+import java.util.function.Consumer;
 
-    private static final String IMAGES_PATH = "/resources/Images/";
+/**
+ * Responsive menu presentation; navigation is delegated through callbacks.
+ */
+public final class MainMenuPane extends StackPane {
 
-    private final GameMatchConfig matchConfig;
+    private static final String RESOURCE_ROOT = "/resources/Images/";
 
-    public MainMenuPane(GameMatchConfig matchConfig) {
-        this.matchConfig = matchConfig;
-        setupUI();
-    }
+    private final Consumer<String> onModeSelected;
+    private final Runnable onLoadMatch;
 
-    private void setupUI() {
+    private final VBox content = new VBox(22);
+    private final HBox gameModes = new HBox(22);
 
-        String cssPath = getClass().getResource("/resources/css/styles.css").toExternalForm();
+    private final Button pvp;
+    private final Button pvm;
 
-        this.getStylesheets().add(cssPath);
-        this.getStyleClass().add("root-pane");
+    private final ImageView background;
 
-        // Fondo del menú
-        Image bgImage = new Image(getClass().getResourceAsStream(IMAGES_PATH + "background.png"));
+    public MainMenuPane(
+            Consumer<String> onModeSelected,
+            Runnable onLoadMatch
+    ) {
+        this.onModeSelected = onModeSelected;
+        this.onLoadMatch = onLoadMatch;
 
-        ImageView bgView = new ImageView(bgImage);
-        bgView.setPreserveRatio(false);
-        bgView.fitWidthProperty().bind(this.widthProperty());
-        bgView.fitHeightProperty().bind(this.heightProperty());
+        loadStyles();
 
-        // Título
+        // Background
+        background = createImage("background.png", true);
+        background.fitWidthProperty().bind(widthProperty());
+        background.fitHeightProperty().bind(heightProperty());
+
+        StackPane overlay = new StackPane();
+        overlay.setStyle("-fx-background-color: rgba(3,12,27,0.18);");
+        // Header
         Text title = new Text("DOPO-SOCCER");
-        title.getStyleClass().add("game-title");
-
-        Text subtitle = new Text("SELECCIONA MODO DE JUEGO");
-        subtitle.getStyleClass().add("subtitle");
-
-        // Jugador vs Jugador
-        Image pvpImage = new Image(getClass().getResourceAsStream(IMAGES_PATH + "pvp_banner.png"));
-
-        ImageView pvpGraphic = new ImageView(pvpImage);
-        pvpGraphic.setFitWidth(240);
-        pvpGraphic.setFitHeight(160);
-        pvpGraphic.setPreserveRatio(true);
-
-        Button pvpButton = new Button();
-        pvpButton.setGraphic(pvpGraphic);
-        pvpButton.getStyleClass().add("card-button-pvp");
-
-        pvpButton.setOnAction(e ->
-                handleSelectMode(PlayerMode.PLAYER_VS_PLAYER)
+        title.getStyleClass().add("menu-title");
+        Label subtitle = new Label("ELIGE CÓMO QUIERES JUGAR");
+        subtitle.getStyleClass().add("menu-subtitle");
+        Label description = new Label("Fútbol, poderes especiales y caos en la cancha");
+        description.getStyleClass().add("menu-description");
+        VBox header = new VBox(7, title, subtitle, description);
+        header.setAlignment(Pos.CENTER);
+        // Game modes
+        pvp = createModeButton(
+                "Jugador vs Jugador",
+                "DOS JUGADORES · MISMO TECLADO",
+                "pvp_banner.png",
+                "PLAYER_VS_PLAYER"
         );
 
-        // Jugador vs Máquina
-        Image pvAiImage = new Image(getClass().getResourceAsStream(IMAGES_PATH + "pvai_banner.png"));
-
-        ImageView pvAiGraphic = new ImageView(pvAiImage);
-        pvAiGraphic.setFitWidth(240);
-        pvAiGraphic.setFitHeight(160);
-        pvAiGraphic.setPreserveRatio(true);
-
-        Button pvAiButton = new Button();
-        pvAiButton.setGraphic(pvAiGraphic);
-        pvAiButton.getStyleClass().add("card-button-disabled");
-
-        // Ahora está habilitado para mostrar el aviso.
-        pvAiButton.setDisable(false);
-
-        pvAiButton.setOnAction(e -> showUnderConstruction());
-
-        HBox modeContainer = new HBox(30, pvpButton, pvAiButton);
-        modeContainer.setAlignment(Pos.CENTER);
-
-        // Opciones
-        Button optionsButton = new Button("OPCIONES");
-        optionsButton.getStyleClass().add("nav-button");
-        optionsButton.setOnAction(event -> showUnderConstruction());
-
-        // Salir
-        Button exitButton = new Button("SALIR");
-        exitButton.getStyleClass().add("nav-button");
-        exitButton.setOnAction(e -> System.exit(0));
-
-        HBox footerContainer = new HBox(
-                20,
-                optionsButton,
-                exitButton
+        pvm = createModeButton(
+                "Jugador vs Máquina",
+                "4 PERFILES DE INTELIGENCIA",
+                "pvai_banner.png",
+                "PLAYER_VS_MACHINE"
         );
 
-        footerContainer.setAlignment(Pos.CENTER);
+        gameModes.getChildren().setAll(pvp, pvm);
+        gameModes.setAlignment(Pos.CENTER);
+        gameModes.setFillHeight(true);
 
-        VBox contentBox = new VBox(
-                25,
-                title,
-                subtitle,
-                modeContainer,
-                footerContainer
+        // Actions
+        Button load = createActionButton(
+                "CARGAR PARTIDA",
+                "load-button"
         );
 
-        contentBox.setAlignment(Pos.CENTER);
+        load.setOnAction(event -> onLoadMatch.run());
 
-        this.getChildren().addAll(bgView, contentBox);
-    }
+        Button exit = createActionButton(
+                "SALIR",
+                "exit-button"
+        );
 
-    private void handleSelectMode(PlayerMode mode) {
+        exit.setOnAction(event -> System.exit(0));
+        HBox actions = new HBox(14, load, exit);
+        actions.setAlignment(Pos.CENTER);
+        // Main content
+        content.getChildren().setAll(header, gameModes, actions);
+        content.setAlignment(Pos.CENTER);
+        content.setPadding(new Insets(18, 24, 18, 24));
+        content.setMaxWidth(Region.USE_PREF_SIZE);
+        content.setMaxHeight(Region.USE_PREF_SIZE);
 
-        matchConfig.setGameMode(mode);
+        content.getStyleClass().add("menu-content");
 
-        ViewNavigator.loadView(
-                new CharacterSelectionPane(matchConfig)
+        getChildren().setAll(background, overlay, content);
+
+        // Responsive adaptation
+        widthProperty().addListener((observable, oldValue, newValue) -> adapt(newValue.doubleValue(), getHeight())
+        );
+
+        heightProperty().addListener((observable, oldValue, newValue) -> adapt(getWidth(), newValue.doubleValue())
+        );
+
+        // Initial adaptation after JavaFX calculates dimensions
+        Platform.runLater(() -> adapt(getWidth(), getHeight())
         );
     }
 
-    private void showUnderConstruction() {
+    /**
+     * Adapts menu cards and spacing to the window size.
+     */
+    private void adapt(double width, double height) {
 
-        try {
-
-            throw new DopoSoccerException(
-                    DopoSoccerException.MODE_UNDER_CONSTRUCTION
-            );
-
-        } catch (DopoSoccerException exception) {
-
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-
-            alert.setTitle("DOPO-SOCCER");
-            alert.setHeaderText("Modalidad en construcción");
-            alert.setContentText(exception.getMessage());
-
-            alert.showAndWait();
+        if (width <= 0 || height <= 0) {
+            return;
         }
+        boolean stacked = width < 900;
+
+        double availableWidth = Math.max(300, width - 80);
+        double cardWidth;
+
+        if (stacked) {
+            cardWidth = Math.min(availableWidth, 520);
+        } else {
+            cardWidth = Math.min((availableWidth - 22) / 2, 480);
+        }
+
+        double cardHeight = Math.max(220, Math.min(320, height * 0.34));
+
+        // Card dimensions
+        pvp.setPrefWidth(cardWidth);
+        pvm.setPrefWidth(cardWidth);
+
+        pvp.setMinWidth(250);
+        pvm.setMinWidth(250);
+
+        pvp.setPrefHeight(cardHeight);
+        pvm.setPrefHeight(cardHeight);
+
+        pvp.setMaxWidth(cardWidth);
+        pvm.setMaxWidth(cardWidth);
+
+        // Spacing
+        gameModes.setSpacing(
+                stacked ? 15 : 22
+        );
+
+        // Artwork dimensions
+        double imageWidth = cardWidth - 40;
+
+        double imageHeight = Math.max(
+                100,
+                cardHeight * 0.52
+        );
+
+        for (Button button : new Button[]{pvp, pvm}) {
+
+            if (button.getGraphic() instanceof VBox box) {
+
+                if (!box.getChildren().isEmpty()
+                        && box.getChildren().get(0)
+                        instanceof ImageView artwork) {
+
+                    artwork.setFitWidth(imageWidth);
+                    artwork.setFitHeight(imageHeight);
+                    artwork.setPreserveRatio(true);
+                }
+            }
+        }
+
+        // Main content spacing
+        content.setSpacing(
+                height < 650 ? 12 : 22
+        );
+
+        content.setPadding(
+                new Insets(
+                        height < 650 ? 10 : 18,
+                        22,
+                        18,
+                        22
+                )
+        );
+    }
+
+    /**
+     * Creates a game mode card.
+     */
+    private Button createModeButton(
+            String title,
+            String description,
+            String imageName,
+            String mode
+    ) {
+
+        ImageView artwork = createImage(imageName, false);
+        artwork.setFitWidth(380);
+        artwork.setFitHeight(190);
+        artwork.setPreserveRatio(true);
+
+        artwork.getStyleClass().add("mode-artwork");
+
+        Label titleLabel = new Label(title);
+        titleLabel.getStyleClass().add("mode-title");
+
+        Label descriptionLabel = new Label(description);
+        descriptionLabel.getStyleClass().add(
+                "mode-description"
+        );
+        VBox card = new VBox(
+                9,
+                artwork,
+                titleLabel,
+                descriptionLabel
+        );
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(10));
+        Button button = new Button();
+        button.setGraphic(card);
+        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        button.setMinHeight(220);
+        button.setPrefHeight(280);
+        button.setMaxHeight(Region.USE_PREF_SIZE);
+        button.setMinWidth(250);
+        button.getStyleClass().add("mode-card"
+        );
+        button.setOnAction(event -> onModeSelected.accept(mode));
+        return button;
+    }
+
+    /**
+     * Creates an action button.
+     */
+    private Button createActionButton(
+            String text,
+            String styleClass
+    ) {
+        Button button = new Button(text);
+
+        button.getStyleClass().addAll("menu-action", styleClass);
+        button.setMinWidth(150);
+        button.setPrefHeight(46);
+        button.setMaxWidth(230);
+
+        return button;
+    }
+
+    /**
+     * Loads an image from resources.
+     */
+    private ImageView createImage(
+            String filename,
+            boolean backgroundImage
+    ) {
+
+        String path = RESOURCE_ROOT + filename;
+
+        InputStream stream = getClass().getResourceAsStream(path);
+        ImageView view = new ImageView();
+        if (stream == null) {
+            System.err.println("No se encontró el recurso: " + path);
+            return view;
+        }
+        Image image = new Image(stream);
+        if (image.isError()) {
+            System.err.println("Error cargando imagen: " + path);
+            return view;
+        }
+        view.setImage(image);
+        view.setSmooth(true);
+        view.setPreserveRatio(!backgroundImage);
+        return view;
+    }
+
+    /**
+     * Loads the stylesheet.
+     */
+    private void loadStyles() {
+        var css = getClass().getResource("/resources/css/styles.css"
+        );
+        if (css != null) {
+            getStylesheets().add(css.toExternalForm());
+            System.out.println("CSS cargado correctamente");
+        } else {
+            System.err.println("No se encontró styles.css");
+        }
+        getStyleClass().add("main-menu");
     }
 }

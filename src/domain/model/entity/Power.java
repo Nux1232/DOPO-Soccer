@@ -1,16 +1,18 @@
 package domain.model.entity;
 
-/**
- * Estado del poder de un jugador.
- *
- * Indica únicamente si el jugador tiene un poder activo en este momento.
- * No distingue qué tipo de tiro de poder es (por ejemplo, el de cada país).
- */
-public enum Power {
+import domain.model.exception.DopoSoccerException;
 
-    /** El jugador no tiene ningún poder activo. */
-    NONE,
-
-    /** El jugador tiene el aura del poder activada. */
-    AURA
+/** Contrato del poder especial que implementa cada personaje/país. */
+public interface Power {
+    String id();
+    String visualAsset();
+    String visualColor();
+    double durationSeconds();
+    double damage();
+    double horizontalSpeed();
+    double verticalSpeed();
+    PlayerStatusEffect hitEffect();
+    double restitution();
+    default boolean renderCopies() { return false; }
+    void applyImpact(Player owner, Player opponent) throws DopoSoccerException;
 }
