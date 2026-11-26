@@ -108,8 +108,8 @@ public class DopoSoccerGUI extends Application {
     private void saveMatch() {
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Guardar partida DOPO-Soccer");
-        chooser.setInitialFileName("partida-dopo.properties");
-        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Partida DOPO-Soccer (*.properties)", "*.properties"));
+        chooser.setInitialFileName("partida-dopo.ser");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Partida DOPO-Soccer (*.ser)", "*.ser"));
         File file = chooser.showSaveDialog(primaryStage);
         if (file == null) return;
         try {
@@ -128,7 +128,7 @@ public class DopoSoccerGUI extends Application {
     private void loadSavedMatch() {
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Abrir partida DOPO-Soccer");
-        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Partida DOPO-Soccer (*.properties)", "*.properties"));
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Partida DOPO-Soccer (*.ser)", "*.ser"));
         File file = chooser.showOpenDialog(primaryStage);
         if (file == null) return;
         try {

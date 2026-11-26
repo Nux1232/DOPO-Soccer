@@ -1,7 +1,8 @@
 package tests;
 
+import domain.factory.CountryFactory;
+
 import domain.model.entity.Ball;
-import domain.model.entity.Country;
 import domain.model.entity.Player;
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
@@ -20,8 +21,8 @@ class TimeGameSuddenDeathTest {
     };
 
     private TimeGame newGame() throws DopoSoccerException {
-        return new TimeGame(PlayerMode.PLAYER_VS_PLAYER, Country.SOUTH_KOREA,
-                Country.CAMEROON, NO_PHYSICS, 1);
+        return new TimeGame(PlayerMode.PLAYER_VS_PLAYER, CountryFactory.create("south-korea"),
+                CountryFactory.create("cameroon"), NO_PHYSICS, 1);
     }
 
     @Test void tiedRegulationTimeTransitionsToSuddenDeath() throws DopoSoccerException {

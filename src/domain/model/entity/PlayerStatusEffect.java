@@ -6,9 +6,9 @@ package domain.model.entity;
 public enum PlayerStatusEffect {
     NONE(1.0, true, true, true),
     PUSHED(0.0, false, false, false),
-    ELECTRIFIED(0.5, true, false, true),
+    ELECTRIFIED(0.25, true, false, false),
     UNCONSCIOUS(0.0, false, false, false),
-    CONFUSED(1.0, true, true, true);
+    CONFUSED(0.65, true, true, false);
 
     private final double movementMultiplier;
     private final boolean canMove;

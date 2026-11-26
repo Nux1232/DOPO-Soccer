@@ -1,7 +1,9 @@
 package tests;
 
+import domain.factory.CountryFactory;
+
 import domain.model.entity.Ball;
-import domain.model.entity.Country;
+import domain.model.entity.LPlayer;
 import domain.model.entity.Player;
 import domain.model.game.Game;
 import domain.model.game.PlayerInput;
@@ -17,7 +19,7 @@ class PlayerFacingTest {
 
     @Test
     void kickAnimationAndFacingFollowKickDirection() throws Exception {
-        Player player = new Player(Country.SOUTH_KOREA, 200);
+        Player player = new LPlayer(CountryFactory.create("south-korea"), 200);
         player.setPosition(200, 200);
         Ball ball = new Ball(180, 200);
 
@@ -36,8 +38,8 @@ class PlayerFacingTest {
         PhysicsEngine physics = new PhysicsEngine();
         Game game = new Game(
                 PlayerMode.PLAYER_VS_PLAYER,
-                Country.NIGERIA,
-                Country.USA,
+                CountryFactory.create("nigeria"),
+                CountryFactory.create("usa"),
                 physics);
         game.updateKickoffDelay(2);
         Player player = game.firstPlayer();

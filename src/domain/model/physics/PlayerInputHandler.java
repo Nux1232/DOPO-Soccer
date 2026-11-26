@@ -12,13 +12,18 @@ public final class PlayerInputHandler {
 
     public void apply(Player player, PlayerInput input, boolean kickoffLocked) {
         if (kickoffLocked || player.stunned()) { player.setVelocity(0, player.velocityY()); return; }
-        player.setFacingDirection((int) input.horizontalDirection());
+        if (player.impactLocked()) return;
+        double horizontalDirection = input.horizontalDirection();
+        if (player.statusEffect() == PlayerStatusEffect.CONFUSED) {
+            horizontalDirection *= -1;
+        }
+        player.setFacingDirection((int) horizontalDirection);
         if (input.power() && player.statusEffect().canKick()) player.activatePower();
         if (player.statusEffect() == PlayerStatusEffect.PUSHED) return;
         if (!player.statusEffect().canMove()) { player.setVelocity(0, player.velocityY()); return; }
 
         double speedMultiplier = 1.0 + 0.10 * (player.stats().speed() - 1);
-        double velocityX = input.horizontalDirection() * PLAYER_MOVE_SPEED * speedMultiplier
+        double velocityX = horizontalDirection * PLAYER_MOVE_SPEED * speedMultiplier
                 * player.statusEffect().movementMultiplier();
         double velocityY = player.velocityY();
         boolean onGround = player.grounded() || player.y() + Player.RADIUS >= Game.GROUND_Y - 2.0;

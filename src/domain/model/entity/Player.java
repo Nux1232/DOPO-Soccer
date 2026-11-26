@@ -40,6 +40,7 @@ public abstract class Player {
     private double kickCooldown;
     private double kickAnimationTimer;
     private double stunTimer;
+    private double impactLockTimer;
     private int facingDirection = 1;
     private PlayerStatusEffect statusEffect = PlayerStatusEffect.NONE;
     private double statusEffectTimer;
@@ -124,6 +125,14 @@ public abstract class Player {
         return stunTimer;
     }
 
+    public boolean impactLocked() {
+        return impactLockTimer > 0;
+    }
+
+    public double impactLockTimer() {
+        return impactLockTimer;
+    }
+
     public double x() {
         return x;
     }
@@ -202,6 +211,7 @@ public abstract class Player {
         grounded = false;
         kickCooldown = 0;
         kickAnimationTimer = 0;
+        impactLockTimer = 0;
         clearStatusEffect();
     }
 
@@ -213,6 +223,19 @@ public abstract class Player {
     public void setVelocity(double velocityX, double velocityY) {
         this.velocityX = velocityX;
         this.velocityY = velocityY;
+    }
+
+    /**
+     * Applies a physical hit reaction that temporarily prevents input from
+     * overwriting the resulting velocity in the next physics frames.
+     */
+    public void applyKnockback(double velocityX, double velocityY, double seconds) {
+        if (seconds <= 0) {
+            throw new DopoSoccerException("La duración del impacto debe ser mayor que cero.");
+        }
+        setVelocity(velocityX, velocityY);
+        impactLockTimer = Math.max(impactLockTimer, seconds);
+        grounded = false;
     }
 
     public void setGrounded(boolean grounded) {
@@ -238,6 +261,7 @@ public abstract class Player {
     public void tick(double seconds) {
         kickCooldown = Math.max(0.0, kickCooldown - seconds);
         kickAnimationTimer = Math.max(0.0, kickAnimationTimer - seconds);
+        impactLockTimer = Math.max(0.0, impactLockTimer - seconds);
 
         powerCharge = PlayerPowerService.recharge(powerCharge, seconds,
                 MAX_POWER_CHARGE, POWER_CHARGE_SECONDS);
@@ -317,6 +341,7 @@ public abstract class Player {
         if (health == 0.0) {
             stunTimer = STUN_DURATION_SECONDS;
             velocityX = 0.0;
+            impactLockTimer = 0.0;
         }
     }
 
@@ -326,6 +351,16 @@ public abstract class Player {
             double x, double y, double velocityX, double velocityY, boolean grounded,
             double kickCooldown, double kickAnimationTimer, double stunTimer, int facingDirection,
             PlayerStatusEffect statusEffect, double statusEffectTimer) {
+        restoreMatchState(goals, health, powerCharge, power, x, y, velocityX, velocityY, grounded,
+            kickCooldown, kickAnimationTimer, stunTimer, facingDirection, statusEffect,
+            statusEffectTimer, 0.0);
+    }
+
+    /** Restores the match state, including any remaining impact knockback. */
+    public void restoreMatchState(int goals, double health, double powerCharge, PowerState power,
+            double x, double y, double velocityX, double velocityY, boolean grounded,
+            double kickCooldown, double kickAnimationTimer, double stunTimer, int facingDirection,
+            PlayerStatusEffect statusEffect, double statusEffectTimer, double impactLockTimer) {
         this.goals = Math.max(0, goals);
         this.health = Math.max(0, Math.min(maxHealth(), health));
         this.powerCharge = Math.max(0, Math.min(MAX_POWER_CHARGE, powerCharge));
@@ -341,6 +376,7 @@ public abstract class Player {
         this.facingDirection = facingDirection == 0 ? 1 : (facingDirection > 0 ? 1 : -1);
         this.statusEffect = statusEffect == null ? PlayerStatusEffect.NONE : statusEffect;
         this.statusEffectTimer = Math.max(0, statusEffectTimer);
+        this.impactLockTimer = Math.max(0, impactLockTimer);
     }
 
 }

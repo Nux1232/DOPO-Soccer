@@ -1,9 +1,10 @@
 package tests;
 
+import domain.factory.CountryFactory;
 import domain.model.entity.Ball;
-import domain.model.entity.Country;
+import domain.model.entity.LPlayer;
 import domain.model.entity.Player;
-import domain.model.entity.PowerShot;
+import domain.model.entity.RPlayer;
 import domain.model.physics.GoalDetector;
 import domain.model.physics.PowerShotImpactHandler;
 import org.junit.jupiter.api.Test;
@@ -23,16 +24,17 @@ class PhysicsRulesTest {
     }
 
     @Test
-    void impactIsDelegatedToThePowerWithoutPhysicsEngineChanges() throws Exception {
-        Player owner = new Player(Country.USA, 100);
-        Player opponent = new Player(Country.CAMEROON, 120);
+    void impactIsDelegatedToTheCountryPowerBehavior() throws Exception {
+        Player owner = new LPlayer(CountryFactory.create("USA"), 100);
+        Player opponent = new RPlayer(CountryFactory.create("CAMEROON"), 120);
+        opponent.setPosition(120, 100);
         Ball ball = new Ball(120, 100);
-        ball.startPowerShot(PowerShot.ILLUSION, owner);
+        ball.startPowerShot(owner.country(), owner);
         PowerShotImpactHandler handler = new PowerShotImpactHandler();
 
         handler.apply(ball, owner, opponent);
 
-        assertEquals(70, opponent.health());
+        assertEquals(52, opponent.health());
         assertEquals(domain.model.entity.PlayerStatusEffect.CONFUSED, opponent.statusEffect());
         assertTrue(ball.powerEffectApplied());
     }

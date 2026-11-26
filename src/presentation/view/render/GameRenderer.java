@@ -238,7 +238,7 @@ public final class GameRenderer {
      */
     private void drawBall(GraphicsContext graphics, GameSnapshot match) {
         String shot = match.activePowerShot();
-        if ("illusion".equals(shot)) {
+        if ("usa".equals(shot) || "illusion".equals(shot)) {
             double elapsed = match.powerShotElapsed();
             double rotation = elapsed * 1.6;
             for (int i = 0; i < 8; i++) {

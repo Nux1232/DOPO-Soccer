@@ -1,6 +1,6 @@
 package tests;
 
-import domain.model.entity.Power;
+import domain.model.entity.PowerState;
 import domain.model.entity.PlayerStatusEffect;
 import domain.model.entity.service.PlayerPowerService;
 import domain.model.entity.service.PlayerProgression;
@@ -41,9 +41,9 @@ class DomainLifecycleServicesTest {
     @Test void powerChargeAndActivationRulesArePure() {
         assertEquals(50.0, PlayerPowerService.recharge(0, 5, 100, 10), 1e-9);
         assertEquals(100.0, PlayerPowerService.recharge(95, 2, 100, 10), 1e-9);
-        assertFalse(PlayerPowerService.canActivate(Power.AURA, 100, 100, false));
-        assertFalse(PlayerPowerService.canActivate(Power.NONE, 100, 100, true));
-        assertTrue(PlayerPowerService.canActivate(Power.NONE, 100, 100, false));
+        assertFalse(PlayerPowerService.canActivate(PowerState.AURA, 100, 100, false));
+        assertFalse(PlayerPowerService.canActivate(PowerState.NONE, 100, 100, true));
+        assertTrue(PlayerPowerService.canActivate(PowerState.NONE, 100, 100, false));
     }
 
     @Test void timedStatusEffectExpiresCleanly() {

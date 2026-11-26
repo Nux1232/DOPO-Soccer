@@ -1,6 +1,7 @@
 
 package tests;
 
+import domain.factory.CountryFactory;
 import domain.model.entity.*;
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.*;
@@ -29,16 +30,16 @@ class DopoSoccerTestV2 {
 
     @Test
     void playerStartsWithFullHealth() {
-        Player player = new Player(Country.SOUTH_KOREA, 100);
+        Player player = new LPlayer(CountryFactory.create("south-korea"), 100);
 
         assertEquals(100.0, player.health());
         assertEquals(0, player.goals());
-        assertEquals(Power.NONE, player.power());
+        assertEquals(PowerState.NONE, player.power());
     }
 
     @Test
     void playerReceivesDamage() throws DopoSoccerException {
-        Player player = new Player(Country.CAMEROON, 100);
+        Player player = new LPlayer(CountryFactory.create("cameroon"), 100);
 
         player.takeDamage(30);
 
@@ -47,7 +48,7 @@ class DopoSoccerTestV2 {
 
     @Test
     void negativeDamageThrowsException() {
-        Player player = new Player(Country.NIGERIA, 100);
+        Player player = new LPlayer(CountryFactory.create("nigeria"), 100);
 
         assertThrows(DopoSoccerException.class,
                 () -> player.takeDamage(-10));
@@ -57,7 +58,7 @@ class DopoSoccerTestV2 {
     void playerGetsStunnedWhenHealthReachesZero()
             throws DopoSoccerException {
 
-        Player player = new Player(Country.USA, 100);
+        Player player = new LPlayer(CountryFactory.create("usa"), 100);
 
         player.takeDamage(100);
 
@@ -71,7 +72,7 @@ class DopoSoccerTestV2 {
     void playerRecoversAfterStunDuration()
             throws DopoSoccerException {
 
-        Player player = new Player(Country.USA, 100);
+        Player player = new LPlayer(CountryFactory.create("usa"), 100);
 
         player.takeDamage(100);
         player.tick(Player.STUN_DURATION_SECONDS);
@@ -82,7 +83,7 @@ class DopoSoccerTestV2 {
 
     @Test
     void playerCanRechargePower() {
-        Player player = new Player(Country.CAMEROON, 100);
+        Player player = new LPlayer(CountryFactory.create("cameroon"), 100);
 
         player.tick(Player.POWER_CHARGE_SECONDS);
 
@@ -92,37 +93,37 @@ class DopoSoccerTestV2 {
 
     @Test
     void playerActivatesAuraWithFullCharge() {
-        Player player = new Player(Country.SOUTH_KOREA, 100);
+        Player player = new LPlayer(CountryFactory.create("south-korea"), 100);
 
         player.tick(Player.POWER_CHARGE_SECONDS);
 
         assertTrue(player.activatePower());
-        assertEquals(Power.AURA, player.power());
+        assertEquals(PowerState.AURA, player.power());
         assertEquals(0.0, player.powerCharge());
     }
 
     @Test
     void playerCannotActivateAuraWithoutFullCharge() {
-        Player player = new Player(Country.SOUTH_KOREA, 100);
+        Player player = new LPlayer(CountryFactory.create("south-korea"), 100);
 
         assertFalse(player.activatePower());
-        assertEquals(Power.NONE, player.power());
+        assertEquals(PowerState.NONE, player.power());
     }
 
     @Test
     void playerConsumesActivePower() {
-        Player player = new Player(Country.SOUTH_KOREA, 100);
+        Player player = new LPlayer(CountryFactory.create("south-korea"), 100);
 
         player.tick(Player.POWER_CHARGE_SECONDS);
         player.activatePower();
 
         assertTrue(player.consumePower());
-        assertEquals(Power.NONE, player.power());
+        assertEquals(PowerState.NONE, player.power());
     }
 
     @Test
     void playerGetsPowerChargeWhenConcedingGoal() {
-        Player player = new Player(Country.USA, 100);
+        Player player = new LPlayer(CountryFactory.create("usa"), 100);
 
         player.onGoalConceded();
 
@@ -131,7 +132,7 @@ class DopoSoccerTestV2 {
 
     @Test
     void playerStatusEffectExpires() {
-        Player player = new Player(Country.CAMEROON, 100);
+        Player player = new LPlayer(CountryFactory.create("cameroon"), 100);
 
         player.applyStatusEffect(PlayerStatusEffect.ELECTRIFIED, 2);
 
@@ -199,8 +200,8 @@ class DopoSoccerTestV2 {
 
         Game game = new Game(
                 PlayerMode.PLAYER_VS_PLAYER,
-                Country.SOUTH_KOREA,
-                Country.CAMEROON,
+                CountryFactory.create("south-korea"),
+                CountryFactory.create("cameroon"),
                 physics
         );
 
@@ -214,8 +215,8 @@ class DopoSoccerTestV2 {
         assertThrows(DopoSoccerException.class,
                 () -> new Game(
                         null,
-                        Country.SOUTH_KOREA,
-                        Country.CAMEROON,
+                        CountryFactory.create("south-korea"),
+                        CountryFactory.create("cameroon"),
                         physics
                 ));
     }
@@ -226,8 +227,8 @@ class DopoSoccerTestV2 {
 
         Game game = new Game(
                 PlayerMode.PLAYER_VS_PLAYER,
-                Country.SOUTH_KOREA,
-                Country.CAMEROON,
+                CountryFactory.create("south-korea"),
+                CountryFactory.create("cameroon"),
                 physics
         );
 
@@ -243,8 +244,8 @@ class DopoSoccerTestV2 {
 
         Game game = new Game(
                 PlayerMode.PLAYER_VS_PLAYER,
-                Country.SOUTH_KOREA,
-                Country.CAMEROON,
+                CountryFactory.create("south-korea"),
+                CountryFactory.create("cameroon"),
                 physics
         );
 
@@ -260,8 +261,8 @@ class DopoSoccerTestV2 {
 
         Game game = new Game(
                 PlayerMode.PLAYER_VS_PLAYER,
-                Country.SOUTH_KOREA,
-                Country.CAMEROON,
+                CountryFactory.create("south-korea"),
+                CountryFactory.create("cameroon"),
                 physics
         );
 
@@ -278,8 +279,8 @@ class DopoSoccerTestV2 {
         assertThrows(DopoSoccerException.class,
                 () -> new GoalGame(
                         PlayerMode.PLAYER_VS_PLAYER,
-                        Country.SOUTH_KOREA,
-                        Country.CAMEROON,
+                        CountryFactory.create("south-korea"),
+                        CountryFactory.create("cameroon"),
                         physics,
                         0
                 ));
@@ -291,8 +292,8 @@ class DopoSoccerTestV2 {
 
         GoalGame game = new GoalGame(
                 PlayerMode.PLAYER_VS_PLAYER,
-                Country.SOUTH_KOREA,
-                Country.CAMEROON,
+                CountryFactory.create("south-korea"),
+                CountryFactory.create("cameroon"),
                 physics,
                 2
         );
@@ -310,8 +311,8 @@ class DopoSoccerTestV2 {
 
         GoalGame game = new GoalGame(
                 PlayerMode.PLAYER_VS_PLAYER,
-                Country.SOUTH_KOREA,
-                Country.CAMEROON,
+                CountryFactory.create("south-korea"),
+                CountryFactory.create("cameroon"),
                 physics,
                 3
         );
@@ -330,8 +331,8 @@ class DopoSoccerTestV2 {
         assertThrows(DopoSoccerException.class,
                 () -> new TimeGame(
                         PlayerMode.PLAYER_VS_PLAYER,
-                        Country.SOUTH_KOREA,
-                        Country.CAMEROON,
+                        CountryFactory.create("south-korea"),
+                        CountryFactory.create("cameroon"),
                         physics,
                         0
                 ));
@@ -343,8 +344,8 @@ class DopoSoccerTestV2 {
 
         TimeGame game = new TimeGame(
                 PlayerMode.PLAYER_VS_PLAYER,
-                Country.SOUTH_KOREA,
-                Country.CAMEROON,
+                CountryFactory.create("south-korea"),
+                CountryFactory.create("cameroon"),
                 physics,
                 240
         );
@@ -359,8 +360,8 @@ class DopoSoccerTestV2 {
 
         TimeGame game = new TimeGame(
                 PlayerMode.PLAYER_VS_PLAYER,
-                Country.SOUTH_KOREA,
-                Country.CAMEROON,
+                CountryFactory.create("south-korea"),
+                CountryFactory.create("cameroon"),
                 physics,
                 240
         );
@@ -377,8 +378,8 @@ class DopoSoccerTestV2 {
 
         TimeGame game = new TimeGame(
                 PlayerMode.PLAYER_VS_PLAYER,
-                Country.SOUTH_KOREA,
-                Country.CAMEROON,
+                CountryFactory.create("south-korea"),
+                CountryFactory.create("cameroon"),
                 physics,
                 1
         );
