@@ -314,15 +314,49 @@ public final class MatchFactory implements MatchRestorer {
         }
     }
 
-    /** Metadatos de modalidad expuestos para construir menús sin listas codificadas. */
+    /**
+     * Metadatos de modalidad expuestos para construir menús sin listas codificadas.
+     *
+     * @param type identificador de dominio de la modalidad
+     * @param displayName nombre que se muestra al usuario
+     * @param parameters definición de los campos que debe configurar la interfaz
+     */
     public record MatchTypeDescriptor(MatchType type, String displayName, List<MatchParameter> parameters) { }
 
     /** Tipo de control generado para un parámetro de modalidad. */
-    public enum ParameterType { NUMBER, TEXT, BOOLEAN, SELECT }
+    public enum ParameterType {
+        /** Campo para introducir un número dentro del rango configurado. */
+        NUMBER,
+        /** Campo para introducir texto dentro de una longitud permitida. */
+        TEXT,
+        /** Control para activar o desactivar una opción. */
+        BOOLEAN,
+        /** Control para elegir entre opciones predefinidas. */
+        SELECT
+    }
 
-    /** Definición declarativa de un campo presentado al configurar una modalidad. */
+    /**
+     * Definición declarativa de un campo presentado al configurar una modalidad.
+     *
+     * @param id identificador estable usado para enviar el valor al dominio
+     * @param label etiqueta visible del campo
+     * @param defaultValue valor inicial representado como texto
+     * @param minimum límite inferior numérico o longitud mínima para texto
+     * @param maximum límite superior numérico o longitud máxima para texto
+     * @param multiplier factor para convertir un valor numérico a la unidad del dominio
+     * @param type tipo de control que debe construir la interfaz
+     * @param options valores permitidos para un control de selección; vacío para otros tipos
+     */
     public record MatchParameter(String id, String label, String defaultValue,
             int minimum, int maximum, int multiplier, ParameterType type, List<String> options) {
+        /** Crea un parámetro numérico sin opciones de selección.
+         * @param id identificador estable usado para enviar el valor al dominio
+         * @param label etiqueta visible del campo
+         * @param defaultValue valor numérico inicial representado como texto
+         * @param minimum límite inferior permitido
+         * @param maximum límite superior permitido
+         * @param multiplier factor para convertir el valor a la unidad del dominio
+         */
         public MatchParameter(String id, String label, String defaultValue,
                 int minimum, int maximum, int multiplier) {
             this(id, label, defaultValue, minimum, maximum, multiplier, ParameterType.NUMBER, List.of());
@@ -374,6 +408,11 @@ public final class MatchFactory implements MatchRestorer {
             }
         }
 
+        /** Valida y normaliza un valor ingresado para este parámetro.
+         * @param value valor proporcionado por la interfaz
+         * @return valor validado; los booleanos se normalizan a minúsculas
+         * @throws DopoSoccerException si el valor falta, no cumple el tipo o queda fuera de rango
+         */
         public String validate(String value) {
             if (value == null) {
                 throw new DopoSoccerException("Falta el parámetro " + label + ".");
@@ -412,9 +451,27 @@ public final class MatchFactory implements MatchRestorer {
         }
     }
 
-    /** Parámetros tipados del dominio utilizados tanto al iniciar como al restaurar partidos. */
+    /**
+     * Parámetros tipados del dominio utilizados tanto al iniciar como al restaurar partidos.
+     *
+     * @param playerMode modo de participación
+     * @param matchType modalidad de partido
+     * @param firstCountryId identificador del país del primer jugador
+     * @param secondCountryId identificador del país del segundo jugador
+     * @param aiProfile perfil de IA asociado al partido
+     * @param parameters valores de entrada indexados por el identificador de cada parámetro
+     */
     public record MatchParameters(PlayerMode playerMode, MatchType matchType,
             String firstCountryId, String secondCountryId, AIProfile aiProfile, Map<String, String> parameters) {
+        /** Crea parámetros compatibles con las modalidades que usan límites genéricos.
+         * @param playerMode modo de participación
+         * @param matchType modalidad de partido
+         * @param firstCountryId identificador del país del primer jugador
+         * @param secondCountryId identificador del país del segundo jugador
+         * @param goalLimit límite de goles de una modalidad por goles
+         * @param durationSeconds duración en segundos de una modalidad por tiempo
+         * @param aiProfile perfil de IA asociado al partido
+         */
         public MatchParameters(PlayerMode playerMode, MatchType matchType, String firstCountryId,
                 String secondCountryId, int goalLimit, int durationSeconds, AIProfile aiProfile) {
             this(playerMode, matchType, firstCountryId, secondCountryId, aiProfile,
