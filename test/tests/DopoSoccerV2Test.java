@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class DopoSoccerTestV2 {
+class DopoSoccerV2Test {
 
     // Motor físico falso: permite probar las reglas del dominio
     // sin ejecutar la simulación real de Dyn4j.
@@ -184,7 +184,7 @@ class DopoSoccerTestV2 {
     void insufficientPointsPreventImprovement() {
         PlayerStats stats = new PlayerStats();
 
-        assertThrows(IllegalStateException.class,
+        assertThrows(DopoSoccerException.class,
                 stats::improveKick);
 
         assertEquals(1, stats.kick());
@@ -392,54 +392,4 @@ class DopoSoccerTestV2 {
         assertEquals("MUERTE SÚBITA — GOL DE ORO", game.modeDescription());
     }
 
-    // =========================
-    // PRUEBAS DE GAME MATCH CONFIG
-    // =========================
-
-    @Test
-    void matchConfigHasDefaultValues() {
-        GameMatchConfig config = new GameMatchConfig();
-
-        assertEquals(MatchType.GOALS, config.getMatchType());
-        assertEquals(10, config.getGoalLimit());
-        assertEquals(240, config.getDurationSeconds());
-    }
-
-    @Test
-    void matchConfigAcceptsValidGoalLimit()
-            throws DopoSoccerException {
-
-        GameMatchConfig config = new GameMatchConfig();
-
-        config.setGoalLimit(15);
-
-        assertEquals(15, config.getGoalLimit());
-    }
-
-    @Test
-    void matchConfigRejectsInvalidGoalLimit() {
-        GameMatchConfig config = new GameMatchConfig();
-
-        assertThrows(DopoSoccerException.class,
-                () -> config.setGoalLimit(-5));
-    }
-
-    @Test
-    void matchConfigAcceptsValidDuration()
-            throws DopoSoccerException {
-
-        GameMatchConfig config = new GameMatchConfig();
-
-        config.setDurationSeconds(300);
-
-        assertEquals(300, config.getDurationSeconds());
-    }
-
-    @Test
-    void matchConfigRejectsInvalidDuration() {
-        GameMatchConfig config = new GameMatchConfig();
-
-        assertThrows(DopoSoccerException.class,
-                () -> config.setDurationSeconds(0));
-    }
 }

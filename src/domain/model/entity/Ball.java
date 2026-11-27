@@ -23,7 +23,7 @@ public final class Ball {
 
     /** Velocidad vertical actual del balón. */
     private double velocityY;
-    private Power activePowerShot;
+    private BallShot activePowerShot;
     private Player powerShotOwner;
     private double powerShotTime;
     private boolean powerEffectApplied;
@@ -75,33 +75,54 @@ public final class Ball {
         return this.velocityY;
     }
 
-    public Power activePowerShot() {
+    /** @return tiro de poder activo en el balón, o {@code null} si es un tiro normal */
+    public BallShot activePowerShot() {
         return activePowerShot;
     }
 
+    /** @return identificador del tiro activo, o {@code null} si el balón no tiene tiro especial */
+    public String activePowerShotId() {
+        return activePowerShot == null ? null : activePowerShot.id();
+    }
+
+    /** @return jugador que ejecutó el tiro de poder activo */
     public Player powerShotOwner() {
         return powerShotOwner;
     }
 
+    /** @return tiempo restante en segundos del tiro de poder activo */
     public double powerShotTime() {
         return powerShotTime;
     }
 
+    /** @return {@code true} si el efecto de impacto ya fue aplicado al rival */
     public boolean powerEffectApplied() {
         return powerEffectApplied;
     }
 
-    public void startPowerShot(Power shot, Player owner) {
+    /**
+     * Inicia un tiro de poder sobre el balón.
+     *
+     * @param shot poder especial ejecutado
+     * @param owner jugador propietario del disparo
+     */
+    public void startPowerShot(BallShot shot, Player owner) {
         activePowerShot = shot;
         powerShotOwner = owner;
         powerShotTime = shot.durationSeconds();
         powerEffectApplied = false;
     }
 
+    /** Marca que el impacto del tiro de poder ya se aplicó al oponente. */
     public void markPowerEffectApplied() {
         powerEffectApplied = true;
     }
 
+    /**
+     * Descuenta el tiempo restante del tiro de poder y lo limpia al expirar.
+     *
+     * @param seconds segundos transcurridos
+     */
     public void tickPowerShot(double seconds) {
         if (activePowerShot == null) {
             return;
@@ -112,7 +133,15 @@ public final class Ball {
         }
     }
 
-    public void restorePowerShot(Power shot, Player owner, double remaining, boolean effectApplied) {
+    /**
+     * Restaura un tiro de poder activo desde una partida guardada.
+     *
+     * @param shot poder restaurado
+     * @param owner jugador propietario del tiro
+     * @param remaining tiempo restante en segundos
+     * @param effectApplied {@code true} si el impacto ya fue aplicado
+     */
+    public void restorePowerShot(BallShot shot, Player owner, double remaining, boolean effectApplied) {
         if (shot == null || owner == null) {
             clearPowerShot();
             return;
@@ -123,6 +152,7 @@ public final class Ball {
         powerEffectApplied = effectApplied;
     }
 
+    /** Limpia cualquier tiro de poder activo sobre el balón. */
     public void clearPowerShot() {
         activePowerShot = null;
         powerShotOwner = null;

@@ -1,39 +1,76 @@
 package presentation.model;
 
-/** UI-owned match configuration, independent of domain configuration classes. */
+import java.util.HashMap;
+import java.util.Map;
+
+/** Configuración de partido gestionada por la interfaz, independiente de las clases del dominio. */
 public final class MatchSetup {
-    public enum Type { GOALS, TIME }
-    public enum Resolution { SMALL(800, 450), MEDIUM(960, 540), LARGE(1280, 720);
+    /** Resoluciones predefinidas disponibles para la ventana del partido. */
+    public enum Resolution {
+        /** Resolución pequeña (800 × 450). */
+        SMALL(800, 450),
+        /** Resolución mediana (960 × 540). */
+        MEDIUM(960, 540),
+        /** Resolución grande (1280 × 720). */
+        LARGE(1280, 720);
+
         private final int width, height;
         Resolution(int width, int height) { this.width = width; this.height = height; }
+
+        /** @return ancho de ventana en píxeles */
         public int width() { return width; }
+        /** @return alto de ventana en píxeles */
         public int height() { return height; }
     }
-    public enum Country { SOUTH_KOREA, CAMEROON, NIGERIA, USA }
 
     private final String playerMode;
-    private Type type = Type.GOALS;
-    private int goalLimit = 10;
-    private int durationSeconds = 240;
-    private Country firstCountry = Country.SOUTH_KOREA;
-    private Country secondCountry = Country.CAMEROON;
+    private String matchType = "goals";
+    private String firstCountry = "south-korea";
+    private String secondCountry = "cameroon";
     private String aiProfile = "EXPERT";
     private Resolution resolution = Resolution.MEDIUM;
+    private final Map<String, String> parameters = new HashMap<>();
 
+    /**
+     * Crea una configuración inicial para el modo de jugadores indicado.
+     *
+     * @param playerMode identificador del modo ({@code PLAYER_VS_PLAYER} o {@code PLAYER_VS_MACHINE})
+     */
     public MatchSetup(String playerMode) { this.playerMode = playerMode; }
+    /** @return modo de participación configurado */
     public String playerMode() { return playerMode; }
-    public Type type() { return type; }
-    public void type(Type value) { if (value != null) type = value; }
-    public int goalLimit() { return goalLimit; }
-    public void goalLimit(int value) { if (value > 0) goalLimit = value; }
-    public int durationSeconds() { return durationSeconds; }
-    public void durationSeconds(int value) { if (value > 0) durationSeconds = value; }
-    public Country firstCountry() { return firstCountry; }
-    public void firstCountry(Country value) { if (value != null) firstCountry = value; }
+    /** @return identificador de la modalidad seleccionada */
+    public String matchType() { return matchType; }
+    /** @param value identificador de la modalidad */
+    public void matchType(String value) {
+        if (value != null && !value.isBlank()) matchType = value;
+    }
+    /** @return valor del parámetro o el predeterminado indicado */
+    public String parameter(String id, String defaultValue) {
+        return parameters.getOrDefault(id, defaultValue);
+    }
+    /** @param id identificador del parámetro @param value valor textual introducido */
+    public void setParameter(String id, String value) {
+        if (id != null && !id.isBlank() && value != null) parameters.put(id, value);
+    }
+    /** @return copia inmutable de los parámetros configurados */
+    public Map<String, String> parameters() { return Map.copyOf(parameters); }
+    /** Elimina parámetros de otra modalidad antes de aplicar el esquema seleccionado. */
+    public void clearParameters() { parameters.clear(); }
+    /** @return identificador del país del jugador 1 */
+    public String firstCountry() { return firstCountry; }
+    /** @param value nuevo país del jugador 1 */
+    public void firstCountry(String value) { if (value != null) firstCountry = value; }
+    /** @return resolución seleccionada para el partido */
     public Resolution resolution() { return resolution; }
+    /** @param value nueva resolución de ventana */
     public void resolution(Resolution value) { if (value != null) resolution = value; }
+    /** @return identificador del perfil de máquina seleccionado */
     public String aiProfile() { return aiProfile; }
+    /** @param value nuevo perfil de máquina */
     public void aiProfile(String value) { if (value != null) aiProfile = value; }
-    public Country secondCountry() { return secondCountry; }
-    public void secondCountry(Country value) { if (value != null) secondCountry = value; }
+    /** @return identificador del país del jugador 2 o máquina */
+    public String secondCountry() { return secondCountry; }
+    /** @param value nuevo país del jugador 2 o máquina */
+    public void secondCountry(String value) { if (value != null) secondCountry = value; }
 }

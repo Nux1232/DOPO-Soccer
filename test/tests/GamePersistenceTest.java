@@ -3,9 +3,12 @@ package tests;
 import domain.factory.CountryFactory;
 import domain.model.ai.AIProfile;
 import domain.model.entity.PlayerStatusEffect;
+import domain.model.entity.ProjectilePower;
 import domain.model.game.Game;
 import domain.model.game.GoalGame;
+import domain.model.game.MatchConfiguration;
 import domain.model.game.MatchType;
+import domain.model.game.MatchValue;
 import domain.model.game.PlayerInput;
 import domain.model.game.PlayerMode;
 import domain.model.game.TimeGame;
@@ -16,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -44,7 +48,8 @@ class GamePersistenceTest {
         game.firstPlayer().applyKnockback(240, -300, 0.3);
         game.ball().setPosition(321, 240);
         game.ball().setVelocity(120, -30);
-        game.ball().startPowerShot(game.firstPlayer().country(), game.firstPlayer());
+        game.ball().startPowerShot(
+                (ProjectilePower) game.firstPlayer().country().power(), game.firstPlayer());
         game.ball().markPowerEffectApplied();
 
         persistence.save(game, AIProfile.OFFENSIVE, false);
@@ -55,6 +60,11 @@ class GamePersistenceTest {
 
         GoalGame restoredGoalGame = assertInstanceOf(GoalGame.class, restored);
         assertEquals(7, restoredGoalGame.goalLimit());
+        var savedGoalConfiguration = new MatchSaveStore(temporaryDirectory.resolve("match.ser"))
+                .load().matchConfiguration();
+        assertEquals(new MatchValue.IntegerNumber(7), savedGoalConfiguration.parameters().get("goalLimit"));
+        assertEquals(6, new MatchSaveStore(temporaryDirectory.resolve("match.ser"))
+                .load().version());
         assertEquals(1, restored.firstPlayer().goals());
         assertEquals(600, restored.firstPlayer().stats().points());
         assertEquals(PlayerStatusEffect.ELECTRIFIED, restored.firstPlayer().statusEffect());
@@ -64,7 +74,7 @@ class GamePersistenceTest {
         assertEquals(240, restored.ball().y());
         assertEquals(120, restored.ball().velocityX());
         assertEquals(-30, restored.ball().velocityY());
-        assertSame(restored.firstPlayer().country(), restored.ball().activePowerShot());
+        assertSame(restored.firstPlayer().country().power(), restored.ball().activePowerShot());
         assertSame(restored.firstPlayer(), restored.ball().powerShotOwner());
         assertTrue(restored.ball().powerEffectApplied());
         assertEquals(AIProfile.OFFENSIVE, saved.aiProfile());
@@ -88,6 +98,62 @@ class GamePersistenceTest {
         TimeGame restored = assertInstanceOf(TimeGame.class, persistence.load().game());
         assertEquals(115, restored.remainingSeconds());
         assertEquals(MatchType.TIME, new MatchSaveStore(temporaryDirectory.resolve("time-match.ser"))
-                .load().matchType());
+                .load().matchConfiguration().type());
+        var savedConfiguration = new MatchSaveStore(temporaryDirectory.resolve("time-match.ser"))
+                .load().matchConfiguration();
+        assertEquals(new MatchValue.IntegerNumber(120), savedConfiguration.parameters().get("durationSeconds"));
+        assertEquals(new MatchValue.DecimalNumber(115), savedConfiguration.state().get("remainingSeconds"));
+        assertEquals(new MatchValue.Flag(false), savedConfiguration.state().get("suddenDeath"));
+    }
+
+    @Test
+    void migratesVersionFiveStringConfigurationAndRewritesTheSave() {
+        Path file = temporaryDirectory.resolve("legacy-match.ser");
+        MatchPersistenceService persistence = new MatchPersistenceService(file);
+        TimeGame game = new TimeGame(
+                PlayerMode.PLAYER_VS_PLAYER,
+                CountryFactory.create("KR"),
+                CountryFactory.create("NG"),
+                new PhysicsEngine(),
+                120);
+        game.update(PlayerInput.NONE, PlayerInput.NONE, 5);
+        persistence.save(game, AIProfile.EXPERT, false);
+
+        MatchSaveStore store = new MatchSaveStore(file);
+        var current = store.load();
+        MatchConfiguration legacyConfiguration = new MatchConfiguration(
+                MatchType.TIME,
+                legacyValues(Map.of("durationSeconds", "120")),
+                legacyValues(Map.of("remainingSeconds", "115.0", "suddenDeath", "false")));
+        store.save(new domain.model.persistence.MatchSaveData(
+                domain.model.persistence.MatchSaveData.LEGACY_VERSION,
+                current.playerMode(),
+                current.firstCountryId(),
+                current.secondCountryId(),
+                current.aiProfile(),
+                legacyConfiguration,
+                current.kickoffDelaySeconds(),
+                current.winner(),
+                current.finished(),
+                current.rewardsApplied(),
+                current.firstPlayer(),
+                current.secondPlayer(),
+                current.ball()));
+
+        TimeGame restored = assertInstanceOf(TimeGame.class, persistence.load().game());
+
+        assertEquals(115, restored.remainingSeconds());
+        assertEquals(domain.model.persistence.MatchSaveData.CURRENT_VERSION, store.load().version());
+        assertEquals(new MatchValue.IntegerNumber(120),
+                store.load().matchConfiguration().parameters().get("durationSeconds"));
+        assertEquals(new MatchValue.DecimalNumber(115),
+                store.load().matchConfiguration().state().get("remainingSeconds"));
+        assertEquals(new MatchValue.Flag(false),
+                store.load().matchConfiguration().state().get("suddenDeath"));
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static Map<String, MatchValue> legacyValues(Map<String, String> values) {
+        return (Map) values;
     }
 }

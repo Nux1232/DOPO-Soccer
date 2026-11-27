@@ -2,13 +2,13 @@ package domain.model.entity;
 import domain.model.exception.DopoSoccerException;
 import domain.model.entity.service.PlayerPowerService;
 import domain.model.entity.service.PlayerStatusService;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Representa a un jugador durante un partido de DOPOSoccer.
  */
-public abstract class Player {
-
-    public abstract PlayerSide side();
+public class Player {
 
     /** Radio del jugador en píxeles. */
     public static final double RADIUS = 25.0;
@@ -27,6 +27,7 @@ public abstract class Player {
     public static final double KICK_ANIMATION_SECONDS = 0.22;
 
     private final Country country;
+    private final PlayerSide side;
     private final PlayerStats stats = new PlayerStats();
     private int goals;
     private double health;
@@ -44,23 +45,65 @@ public abstract class Player {
     private int facingDirection = 1;
     private PlayerStatusEffect statusEffect = PlayerStatusEffect.NONE;
     private double statusEffectTimer;
+    private final Map<String, String> powerExtensionState = new TreeMap<>();
 
-    protected Player(Country country, double x) {
-        if (country == null) throw new DopoSoccerException("El país del jugador es obligatorio.");
+    /**
+     * Crea un jugador asociado a un lado del campo.
+     *
+     * @param country selección representada
+     * @param x posición horizontal inicial
+     * @param side lado lógico del campo
+     */
+    public Player(Country country, double x, PlayerSide side) {
+        if (country == null || side == null) {
+            throw new DopoSoccerException("El país y el lado del jugador son obligatorios.");
+        }
         this.country = country;
+        this.side = side;
         this.x = x;
         this.health = maxHealth();
+        setFacingDirection(side == PlayerSide.LEFT ? 1 : -1);
     }
+
+    /** @return lado lógico del jugador */
+    public final PlayerSide side() { return side; }
 
     public Country country() {
         return country;
+    }
+
+    /** @return copia inmutable del estado adicional definido por el poder de este jugador */
+    public Map<String, String> powerExtensionState() {
+        return Map.copyOf(powerExtensionState);
+    }
+
+    /** Guarda un valor de estado adicional asociado al poder actual. */
+    public void setPowerExtensionState(String key, String value) {
+        if (key == null || key.isBlank() || value == null) {
+            throw new DopoSoccerException("La clave y el valor del estado del poder son obligatorios.");
+        }
+        powerExtensionState.put(key, value);
+    }
+
+    /** Reemplaza el estado adicional al restaurar una partida. */
+    public void restorePowerExtensionState(Map<String, String> state) {
+        if (state == null || state.keySet().stream().anyMatch(key -> key == null || key.isBlank())
+                || state.values().stream().anyMatch(value -> value == null)) {
+            throw new DopoSoccerException("El estado adicional del poder guardado es inválido.");
+        }
+        powerExtensionState.clear();
+        powerExtensionState.putAll(state);
     }
 
     public PlayerStats stats() {
         return stats;
     }
 
-    /** Restores progression and synchronizes health with the restored survival level. */
+    /**
+     * Restaura la progresión de estadísticas y sincroniza la vida con el nivel de supervivencia cargado.
+     *
+     * @param profile perfil persistido del jugador
+     */
     public void restoreProfile(domain.model.persistence.PlayerProfile profile) {
         stats.restore(profile);
         health=maxHealth();
@@ -226,8 +269,12 @@ public abstract class Player {
     }
 
     /**
-     * Applies a physical hit reaction that temporarily prevents input from
-     * overwriting the resulting velocity in the next physics frames.
+     * Aplica una reacción física de impacto que impide temporalmente que el movimiento
+     * controlado sobrescriba la velocidad resultante durante los siguientes cuadros.
+     *
+     * @param velocityX velocidad horizontal del impulso
+     * @param velocityY velocidad vertical del impulso
+     * @param seconds duración del bloqueo por impacto en segundos
      */
     public void applyKnockback(double velocityX, double velocityY, double seconds) {
         if (seconds <= 0) {
@@ -356,7 +403,7 @@ public abstract class Player {
             statusEffectTimer, 0.0);
     }
 
-    /** Restores the match state, including any remaining impact knockback. */
+    /** Restaura el estado completo del partido, incluyendo el bloqueo restante por impacto. */
     public void restoreMatchState(int goals, double health, double powerCharge, PowerState power,
             double x, double y, double velocityX, double velocityY, boolean grounded,
             double kickCooldown, double kickAnimationTimer, double stunTimer, int facingDirection,

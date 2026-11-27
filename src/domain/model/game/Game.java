@@ -4,12 +4,12 @@ package domain.model.game;
 import domain.model.entity.Ball;
 import domain.model.entity.Country;
 import domain.model.entity.Player;
-import domain.model.entity.LPlayer;
-import domain.model.entity.RPlayer;
+import domain.model.entity.PlayerSide;
 import domain.model.exception.DopoSoccerException;
 import domain.model.physics.PhysicsEngine;
 import domain.model.physics.PhysicsSimulation;
 import domain.model.game.lifecycle.MatchLifecycle;
+import java.util.Map;
 
 /**
  * Representa un partido de DOPO-SOCCER.
@@ -47,7 +47,13 @@ public class Game {
     }
 
     /**
-     * Constructor con inyección de dependencias.
+     * Constructor principal con inyección explícita del motor de simulación física.
+     *
+     * @param playerMode modalidad de participación (PvP o PvM)
+     * @param firstCountry país del primer jugador (izquierdo)
+     * @param secondCountry país del segundo jugador (derecho)
+     * @param physicsSimulation implementación de la simulación física del partido
+     * @throws DopoSoccerException si algún parámetro requerido es {@code null}
      */
     public Game(PlayerMode playerMode, Country firstCountry, Country secondCountry, PhysicsSimulation physicsSimulation) throws DopoSoccerException {
         if (playerMode == null || firstCountry == null || secondCountry == null || physicsSimulation == null) {
@@ -55,41 +61,59 @@ public class Game {
         }
         this.playerMode = playerMode;
         this.physicsSimulation = physicsSimulation;
-        this.firstPlayer = new LPlayer(firstCountry, WIDTH / 2 - 60);
-        this.secondPlayer = new RPlayer(secondCountry, WIDTH / 2 + 60);
+        this.firstPlayer = new Player(firstCountry, WIDTH / 2 - 60, PlayerSide.LEFT);
+        this.secondPlayer = new Player(secondCountry, WIDTH / 2 + 60, PlayerSide.RIGHT);
 
         this.ball = new Ball(WIDTH / 2, 160);
         prepareKickoff();
     }
 
+    /** @return modalidad de participación del partido */
     public PlayerMode playerMode() {
         return playerMode;
     }
 
+    /** @return jugador ubicado en el lado izquierdo */
     public Player firstPlayer() {
         return firstPlayer;
     }
 
+    /** @return jugador ubicado en el lado derecho */
     public Player secondPlayer() {
         return secondPlayer;
     }
 
+    /** @return balón del partido */
     public Ball ball() {
         return ball;
     }
 
+    /** @return segundos restantes de la pausa previa al saque */
     public double kickoffDelaySeconds() { return kickoffDelay; }
 
+    /**
+     * Restaura el tiempo restante de pausa de saque al cargar una partida guardada.
+     *
+     * @param seconds segundos restantes de espera
+     */
     public void restoreKickoffDelay(double seconds) { kickoffDelay = Math.max(0, seconds); }
 
+    /**
+     * Restaura el estado finalizado del ciclo de vida del partido.
+     *
+     * @param winner identificador del ganador ({@code 0} empate, {@code 1} o {@code 2})
+     */
     public void restoreLifecycle(int winner) { if (winner >= 0 && winner <= 2) lifecycle.finish(winner); }
 
+    /** @return {@code true} mientras el saque inicial o tras gol sigue bloqueado */
     public boolean kickoffDelayActive() {
         return kickoffDelay > 0;
     }
 
     /**
-     * Registra un gol y prepara el siguiente saque.
+     * Registra un gol para el jugador indicado y prepara el siguiente saque.
+     *
+     * @param scoringPlayer número del jugador anotador ({@code 1} o {@code 2})
      */
     public void scoreGoal(int scoringPlayer) {
         if (scoringPlayer != 1 && scoringPlayer != 2) {
@@ -102,6 +126,12 @@ public class Game {
         prepareKickoff();
     }
 
+    /**
+     * Descuenta el tiempo transcurrido al retraso activo de saque.
+     *
+     * @param deltaSeconds segundos transcurridos
+     * @throws DopoSoccerException si el tiempo es negativo
+     */
     public void updateKickoffDelay(double deltaSeconds) throws DopoSoccerException {
 
         if (deltaSeconds < 0) {
@@ -112,7 +142,12 @@ public class Game {
     }
 
     /**
-     * Actualiza la simulación y procesa las patadas.
+     * Actualiza la simulación física, reduce el retraso de saque y procesa las patadas.
+     *
+     * @param firstInput acciones del primer jugador
+     * @param secondInput acciones del segundo jugador
+     * @param deltaSeconds segundos transcurridos desde el cuadro anterior
+     * @throws DopoSoccerException si las entradas son {@code null} o el tiempo es negativo
      */
     public void update(PlayerInput firstInput, PlayerInput secondInput, double deltaSeconds) throws DopoSoccerException {
         if (firstInput == null || secondInput == null) {
@@ -138,14 +173,34 @@ public class Game {
             }
         }
     }
+    /**
+     * Indica si el partido ya finalizó.
+     *
+     * @return {@code true} si el encuentro terminó
+     */
     public boolean isFinished() {
         return lifecycle.isFinished();
     }
 
+    /**
+     * Devuelve el ganador del encuentro.
+     *
+     * @return {@code 0} para empate, {@code 1} para el primer jugador o {@code 2} para el segundo
+     */
     public int winner() {
         return lifecycle.winner();
     }
 
+    /**
+     * Finaliza anticipadamente el partido determinando el resultado según el marcador actual.
+     */
+    public void endMatchNow() {
+        if (lifecycle.isFinished()) {
+            return;
+        }
+        int result = compareScores();
+        finishMatch(result > 0 ? 1 : (result < 0 ? 2 : 0));
+    }
 
     protected void finishMatch(int winner) {
         lifecycle.finish(winner);
@@ -169,7 +224,35 @@ public class Game {
         ball.clearPowerShot();
         kickoffDelay = KICKOFF_DELAY_SECONDS;
     }
+
+    /**
+     * Devuelve la descripción textual de la modalidad o estado temporal del partido.
+     *
+     * @return descripción visible en el marcador
+     */
     public String modeDescription() {
         return "PARTIDO LIBRE";
+    }
+
+    /**
+     * Construye una instantánea de configuración para persistencia.
+     *
+     * @return configuración actual del partido
+     */
+    public MatchConfiguration matchConfiguration() {
+        return new MatchConfiguration(
+                MatchType.GOALS, Map.of("goalLimit", new MatchValue.IntegerNumber(10)));
+    }
+
+    /**
+     * Restaura los parámetros específicos del modo tras cargar una partida.
+     *
+     * @param configuration configuración serializada del partido
+     * @throws DopoSoccerException si la configuración no corresponde al tipo de partido
+     */
+    public void restoreMatchConfiguration(MatchConfiguration configuration) {
+        if (configuration == null || !MatchType.GOALS.equals(configuration.type())) {
+            throw new DopoSoccerException("La configuración guardada no corresponde a este partido.");
+        }
     }
 }

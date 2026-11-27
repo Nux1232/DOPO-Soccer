@@ -6,6 +6,8 @@ import domain.model.exception.DopoSoccerException;
 import domain.model.physics.PhysicsSimulation;
 import domain.model.game.lifecycle.MatchClock;
 
+import java.util.Map;
+
 /**
  * Partido que termina cuando se agota el tiempo.
  */
@@ -14,6 +16,16 @@ public final class TimeGame extends Game {
     private final MatchClock clock;
     private boolean suddenDeath;
 
+    /**
+     * Crea un partido por tiempo reglamentario con soporte para muerte súbita.
+     *
+     * @param playerMode modalidad de participación
+     * @param firstCountry país del jugador izquierdo
+     * @param secondCountry país del jugador derecho
+     * @param physicsSimulation motor físico inyectado
+     * @param durationSeconds duración reglamentaria en segundos
+     * @throws DopoSoccerException si la duración es menor o igual que cero
+     */
     public TimeGame(
             PlayerMode playerMode,
             Country firstCountry,
@@ -33,11 +45,16 @@ public final class TimeGame extends Game {
         this.clock = new MatchClock(durationSeconds);
     }
 
+    /** @return duración total configurada en segundos */
     public int durationSeconds() {
         return clock.durationSeconds();
     }
 
-    /** True when regulation ended tied and the match is in golden-goal overtime. */
+    /**
+     * Indica si el tiempo reglamentario concluyó en empate y el partido está en gol de oro.
+     *
+     * @return {@code true} si el partido se encuentra en muerte súbita
+     */
     public boolean suddenDeath() {
         return suddenDeath;
     }
@@ -52,17 +69,57 @@ public final class TimeGame extends Game {
         }
     }
 
+    /**
+     * Restaura el reloj interno y el estado de muerte súbita al cargar una partida.
+     *
+     * @param remaining segundos restantes en el reloj
+     * @param suddenDeath {@code true} si la partida estaba en muerte súbita
+     */
     public void restoreClock(double remaining, boolean suddenDeath) {
         clock.restoreRemaining(remaining);
         this.suddenDeath = suddenDeath;
     }
 
+    /** @return tiempo restante exacto en segundos */
     public double remainingExactSeconds() { return clock.remainingExactSeconds(); }
 
+    @Override
+    public MatchConfiguration matchConfiguration() {
+        return new MatchConfiguration(
+                MatchType.TIME,
+                Map.of("durationSeconds", new MatchValue.IntegerNumber(durationSeconds())),
+                Map.of("remainingSeconds", new MatchValue.DecimalNumber(remainingExactSeconds()),
+                        "suddenDeath", new MatchValue.Flag(suddenDeath)));
+    }
+
+    @Override
+    public void restoreMatchConfiguration(MatchConfiguration configuration) {
+        if (configuration == null || !MatchType.TIME.equals(configuration.type())) {
+            throw new DopoSoccerException("La configuración guardada no corresponde a este partido.");
+        }
+        try {
+            MatchValue durationValue = configuration.parameters().get("durationSeconds");
+            MatchValue remainingValue = configuration.state().get("remainingSeconds");
+            MatchValue suddenDeathValue = configuration.state().get("suddenDeath");
+            if (!(durationValue instanceof MatchValue.IntegerNumber savedDuration)
+                    || !(remainingValue instanceof MatchValue.DecimalNumber remaining)
+                    || !(suddenDeathValue instanceof MatchValue.Flag savedSuddenDeath)
+                    || savedDuration.value() != durationSeconds() || remaining.value() < 0) {
+                throw new IllegalArgumentException("La configuración temporal no es válida.");
+            }
+            clock.restoreRemaining(remaining.value());
+            suddenDeath = savedSuddenDeath.value();
+        } catch (NullPointerException exception) {
+            throw new DopoSoccerException("La configuración temporal guardada es inválida.", exception);
+        }
+    }
+
+    /** @return segundos restantes redondeados hacia arriba para visualización */
     public int remainingSeconds() {
         return clock.remainingSeconds();
     }
 
+    /** @return tiempo restante formateado como {@code MM:SS} */
     public String formattedTime() {
         return clock.formatted();
     }

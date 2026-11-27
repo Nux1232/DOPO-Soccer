@@ -17,11 +17,22 @@ public class DopoSoccerException extends RuntimeException {
     public static final String PROFILE_READ_ERROR = "No se pudo leer el perfil guardado.";
     public static final String PROFILE_SAVE_ERROR = "No se pudo guardar el perfil.";
 
+    /**
+     * Crea una excepción de dominio y la registra automáticamente en el log.
+     *
+     * @param message mensaje descriptivo del error ocurrido
+     */
     public DopoSoccerException(String message) {
         super(message);
         DopoSoccerLog.record(this);
     }
 
+    /**
+     * Crea una excepción de dominio con causa subyacente y la registra en el log.
+     *
+     * @param message mensaje descriptivo del error ocurrido
+     * @param cause excepción original que provocó el fallo
+     */
     public DopoSoccerException(String message, Throwable cause) {
         super(message, cause);
         DopoSoccerLog.record(this);

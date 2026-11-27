@@ -18,7 +18,7 @@ import java.io.InputStream;
 import java.util.function.Consumer;
 
 /**
- * Responsive menu presentation; navigation is delegated through callbacks.
+ * Vista adaptable del menú principal; la navegación se delega mediante callbacks.
  */
 public final class MainMenuPane extends StackPane {
 
@@ -35,6 +35,12 @@ public final class MainMenuPane extends StackPane {
 
     private final ImageView background;
 
+    /**
+     * Construye el menú principal con las acciones para seleccionar modo o cargar partida.
+     *
+     * @param onModeSelected callback invocado al elegir la modalidad ({@code PLAYER_VS_PLAYER} o {@code PLAYER_VS_MACHINE})
+     * @param onLoadMatch acción invocada al solicitar cargar una partida guardada
+     */
     public MainMenuPane(
             Consumer<String> onModeSelected,
             Runnable onLoadMatch
