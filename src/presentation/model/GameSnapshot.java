@@ -33,7 +33,7 @@ public record GameSnapshot(
         double powerShotDuration, double powerShotElapsed, boolean powerShotRenderCopies) {
 
     /**
-     * Instantánea inmutable del estado visual y HUD de un jugador.
+     * Instantánea inmutable del estado visual, estadísticas y HUD de un jugador.
      *
      * @param countryName nombre visible del país
      * @param jerseyColor color hexadecimal de la camiseta
@@ -44,7 +44,11 @@ public record GameSnapshot(
      * @param health salud actual
      * @param maxHealth salud máxima
      * @param powerCharge porcentaje de carga de poder
-     * @param points puntos acumulados del jugador
+     * @param points puntos acumulados disponibles para mejoras
+     * @param speed nivel de velocidad (1 a 10)
+     * @param kick nivel de patada (1 a 10)
+     * @param jump nivel de salto (1 a 10)
+     * @param survival nivel de supervivencia (1 a 10)
      * @param facingDirection dirección a la que mira ({@code 1} derecha, {@code -1} izquierda)
      * @param kicking indica si está ejecutando una patada
      * @param stunned indica si está aturdido
@@ -53,7 +57,7 @@ public record GameSnapshot(
      */
     public record PlayerSnapshot(String countryName, String jerseyColor, String flagAsset,
             double x, double y, int goals, double health, double maxHealth,
-            double powerCharge, int points, int facingDirection, boolean kicking,
+            double powerCharge, int points, int speed, int kick, int jump, int survival,
+            int facingDirection, boolean kicking,
             boolean stunned, boolean auraActive, String statusEffect) { }
 }
-

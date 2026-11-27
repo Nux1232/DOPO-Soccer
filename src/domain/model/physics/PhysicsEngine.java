@@ -159,8 +159,16 @@ public class PhysicsEngine implements PhysicsSimulation {
         goalDetector.scoringPlayer(ball).ifPresent(game::scoreGoal);
     }
 
+    /**
+     * Consume el aura y lanza el tiro especial cuando el jugador toca el balón,
+     * independientemente de que haya pulsado la tecla de patada.
+     *
+     * @param player jugador cuyo cuerpo está en contacto con el balón
+     * @param ball balón con el que ha entrado en contacto
+     */
     private void triggerPowerShotOnTouch(Player player, Ball ball) {
-        if (player.power() != PowerState.AURA || player.stunned()) {
+        if (player.power() != PowerState.AURA || player.stunned()
+                || ball.activePowerShot() != null) {
             return;
         }
         double dist = Math.hypot(ball.x() - player.x(), ball.y() - player.y());
@@ -173,6 +181,13 @@ public class PhysicsEngine implements PhysicsSimulation {
         launchPowerShot(player, ball, dir);
     }
 
+    /**
+     * Consume el aura del jugador y aplica al balón la velocidad y restitución del poder.
+     *
+     * @param player jugador que activa el poder
+     * @param ball balón sobre el que se ejecuta el tiro
+     * @param dir dirección horizontal del disparo ({@code -1} izquierda, {@code 1} derecha)
+     */
     private void launchPowerShot(Player player, Ball ball, int dir) {
         Power powerShot = player.country().power();
         if (powerShot != null && player.consumePower()) {

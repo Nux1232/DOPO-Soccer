@@ -24,11 +24,53 @@ import java.util.List;
  */
 public final class DopoSoccer {
     private Game currentMatch;
-    private final FootballAI ai = new FootballAI();
-    private final PlayerProfileService profileService = new PlayerProfileService();
-    private final MatchRewardService rewardService = new MatchRewardService();
+    private final FootballAI ai;
+    private final PlayerProfileService profileService;
+    private final MatchFactory matchFactory;
+    private final MatchPersistenceService matchPersistenceService;
+    private final MatchRewardService rewardService;
     private boolean rewardsApplied;
     private AIProfile aiProfile = AIProfile.EXPERT;
+
+    /** Construye la fachada con las implementaciones predeterminadas. */
+    public DopoSoccer() {
+        this(new MatchFactory(), new PlayerProfileService());
+    }
+
+    /**
+     * Construye la fachada con fábrica y servicio de perfiles configurables.
+     * La fábrica compartida también se usa para reconstruir las partidas guardadas.
+     *
+     * @param matchFactory fábrica de modalidades y simulación
+     * @param profileService servicio de perfiles
+     */
+    public DopoSoccer(MatchFactory matchFactory, PlayerProfileService profileService) {
+        this(matchFactory, profileService, new MatchPersistenceService(matchFactory),
+                new FootballAI(), new MatchRewardService());
+    }
+
+    /**
+     * Construye la fachada inyectando sus dependencias de aplicación.
+     *
+     * @param matchFactory fábrica de modalidades y simulación
+     * @param profileService servicio de perfiles
+     * @param matchPersistenceService servicio de guardado y restauración
+     * @param ai implementación de inteligencia artificial
+     * @param rewardService servicio de recompensas
+     */
+    public DopoSoccer(MatchFactory matchFactory, PlayerProfileService profileService,
+            MatchPersistenceService matchPersistenceService, FootballAI ai,
+            MatchRewardService rewardService) {
+        if (matchFactory == null || profileService == null || matchPersistenceService == null
+                || ai == null || rewardService == null) {
+            throw new DopoSoccerException("Las dependencias de la fachada son obligatorias.");
+        }
+        this.matchFactory = matchFactory;
+        this.profileService = profileService;
+        this.matchPersistenceService = matchPersistenceService;
+        this.ai = ai;
+        this.rewardService = rewardService;
+    }
 
 
     public enum MatchKind { GOALS, TIME }
@@ -60,6 +102,7 @@ public final class DopoSoccer {
     /** Estado de jugador de solo lectura para construir una representación visual. */
     public record PlayerSnapshot(String countryName, String jerseyColor, String flagAsset, double x, double y,
             int goals, double health, double maxHealth, double powerCharge, int points,
+            int speed, int kick, int jump, int survival,
             int facingDirection, boolean kicking, boolean stunned, String power,
             String statusEffect) { }
 
@@ -94,12 +137,31 @@ public final class DopoSoccer {
      * @throws DopoSoccerException si la configuración es inválida o incompleta
      */
     public void startMatch(MatchRequest request) throws DopoSoccerException {
-        currentMatch = MatchFactory.create(request);
+        currentMatch = matchFactory.createMatch(toMatchParameters(request));
         rewardsApplied = false;
         aiProfile = request.aiProfile() == null ? AIProfile.EXPERT : AIProfile.valueOf(request.aiProfile());
         profileService.loadInto("player1", currentMatch.firstPlayer());
         if (currentMatch.playerMode() == domain.model.game.PlayerMode.PLAYER_VS_PLAYER) {
             profileService.loadInto("player2", currentMatch.secondPlayer());
+        }
+    }
+
+    private MatchFactory.MatchParameters toMatchParameters(MatchRequest request) {
+        if (request == null || request.playerMode() == null || request.matchType() == null
+                || request.firstCountry() == null || request.secondCountry() == null) {
+            throw new DopoSoccerException(DopoSoccerException.NULL_CONFIG);
+        }
+        try {
+            return new MatchFactory.MatchParameters(
+                    domain.model.game.PlayerMode.valueOf(request.playerMode().name()),
+                    domain.model.game.MatchType.valueOf(request.matchType().name()),
+                    request.firstCountry(),
+                    request.secondCountry(),
+                    request.goalLimit(),
+                    request.durationSeconds(),
+                    AIProfile.valueOf(request.aiProfile() == null ? "EXPERT" : request.aiProfile()));
+        } catch (IllegalArgumentException exception) {
+            throw new DopoSoccerException("La modalidad o el perfil seleccionado no existe.");
         }
     }
 
@@ -197,7 +259,9 @@ public final class DopoSoccer {
 
     /** Guarda el estado completo del partido activo en la ruta por defecto. */
     public void saveMatch() {
-        saveMatch(new MatchPersistenceService().filePath());
+        requireMatch();
+        matchPersistenceService.save(currentMatch, aiProfile, rewardsApplied);
+        saveProfiles();
     }
 
     /**
@@ -208,13 +272,16 @@ public final class DopoSoccer {
      */
     public void saveMatch(java.nio.file.Path file) {
         requireMatch();
-        new MatchPersistenceService(file).save(currentMatch, aiProfile, rewardsApplied);
+        new MatchPersistenceService(file, matchFactory).save(currentMatch, aiProfile, rewardsApplied);
         saveProfiles();
     }
 
     /** Abre la partida guardada en la ruta por defecto y reconstruye sus entidades. */
     public void loadMatch() {
-        loadMatch(new MatchPersistenceService().filePath());
+        MatchPersistenceService.LoadedMatch loaded = matchPersistenceService.load();
+        currentMatch = loaded.game();
+        aiProfile = loaded.aiProfile();
+        rewardsApplied = loaded.rewardsApplied();
     }
 
     /**
@@ -224,7 +291,7 @@ public final class DopoSoccer {
      * @throws DopoSoccerException si el archivo no existe, es incompatible o está corrupto
      */
     public void loadMatch(java.nio.file.Path file) {
-        MatchPersistenceService.LoadedMatch loaded = new MatchPersistenceService(file).load();
+        MatchPersistenceService.LoadedMatch loaded = new MatchPersistenceService(file, matchFactory).load();
         currentMatch = loaded.game();
         aiProfile = loaded.aiProfile();
         rewardsApplied = loaded.rewardsApplied();
@@ -258,7 +325,9 @@ public final class DopoSoccer {
         return new PlayerSnapshot(player.country().displayName(), player.country().color(),
                 player.country().flagAsset(),
                 player.x(), player.y(), player.goals(), player.health(), player.maxHealth(),
-                player.powerCharge(), player.stats().points(), player.facingDirection(), player.kicking(), player.stunned(),
+                player.powerCharge(), player.stats().points(), player.stats().speed(), player.stats().kick(),
+                player.stats().jump(), player.stats().survival(),
+                player.facingDirection(), player.kicking(), player.stunned(),
                 player.power().name(), player.statusEffect().name());
     }
 

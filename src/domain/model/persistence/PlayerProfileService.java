@@ -6,7 +6,7 @@ import domain.model.exception.DopoSoccerException;
 
 /** Coordina la lectura, mejora y persistencia de perfiles independientemente de los partidos. */
 public final class PlayerProfileService {
-    private final ProfileStore store;
+    private final PlayerProfileRepository store;
 
     /** Crea el servicio utilizando el almacén de perfiles por defecto. */
     public PlayerProfileService() {
@@ -19,7 +19,7 @@ public final class PlayerProfileService {
      * @param store almacén de perfiles
      * @throws DopoSoccerException si el almacén es nulo
      */
-    public PlayerProfileService(ProfileStore store) {
+    public PlayerProfileService(PlayerProfileRepository store) {
         if (store == null) throw new DopoSoccerException("El almacén de perfiles es obligatorio.");
         this.store = store;
     }

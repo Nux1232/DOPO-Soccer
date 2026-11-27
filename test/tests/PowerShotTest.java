@@ -43,10 +43,15 @@ class PowerShotTest {
         Country nigeria = CountryFactory.create("NG");
         Country usa = CountryFactory.create("USA");
 
-        assertEquals(60, southKorea.power().damage());
-        assertEquals(84, cameroon.power().damage());
-        assertEquals(60, nigeria.power().damage());
-        assertEquals(48, usa.power().damage());
+        // Daños base del Anexo 1: Corea=40, Camerún=60, Nigeria=40, USA=30
+        assertEquals(40, southKorea.power().damage());
+        assertEquals(60, cameroon.power().damage());
+        assertEquals(40, nigeria.power().damage());
+        assertEquals(30, usa.power().damage());
+        assertEquals(1.5, southKorea.power().durationSeconds());
+        assertEquals(3.0, cameroon.power().durationSeconds());
+        assertEquals(3.0, nigeria.power().durationSeconds());
+        assertEquals(2.5, usa.power().durationSeconds());
         assertEquals("Ko_power.gif", southKorea.power().visualAsset());
         assertEquals("Cm_power.gif", cameroon.power().visualAsset());
         assertEquals("Ng_power.gif", nigeria.power().visualAsset());
@@ -73,6 +78,27 @@ class PowerShotTest {
     }
 
     @Test
+    void touchingTheBallWithAuraLaunchesPowerWithoutPressingKick() throws Exception {
+        PhysicsEngine physics = new PhysicsEngine();
+        Game game = new Game(
+                PlayerMode.PLAYER_VS_PLAYER,
+                CountryFactory.create("KR"),
+                CountryFactory.create("CM"),
+                physics);
+        game.restoreKickoffDelay(0);
+
+        Player player = game.firstPlayer();
+        player.tick(Player.POWER_CHARGE_SECONDS);
+        assertTrue(player.activatePower());
+        game.ball().setPosition(player.x() + 20, player.y());
+
+        physics.update(game, PlayerInput.NONE, PlayerInput.NONE, 1.0 / 60.0);
+
+        assertEquals(PowerState.NONE, player.power());
+        assertSame(player.country().power(), game.ball().activePowerShot());
+    }
+
+    @Test
     void countryPowerImpactAppliesDamageAndTemporaryEffect() throws Exception {
         PhysicsEngine physics = new PhysicsEngine();
         Game game = new Game(
@@ -96,11 +122,13 @@ class PowerShotTest {
 
         physics.update(game, PlayerInput.NONE, PlayerInput.NONE, 1.0 / 60.0);
 
-        assertEquals(16, target.health(), 0.01);
+        // Camerún Kick=1: daño = 60 × 1.0 = 60 → salud = 100 - 60 = 40 (Anexo 1/2)
+        assertEquals(40, target.health(), 0.01);
         assertEquals(PlayerStatusEffect.ELECTRIFIED, target.statusEffect());
         assertFalse(target.canJump());
         assertFalse(target.canKick());
-        assertEquals(0.25, target.statusEffect().movementMultiplier());
+        // ELECTRIFIED: 50% de velocidad (Anexo 1)
+        assertEquals(0.50, target.statusEffect().movementMultiplier());
 
         target.tick(4.0);
         assertEquals(PlayerStatusEffect.NONE, target.statusEffect());

@@ -11,9 +11,10 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Optional;
 
 /** Lee y escribe instantáneas serializables y versionadas de partidos en disco. */
-public final class MatchSaveStore {
+public final class MatchSaveStore implements MatchSaveRepository {
     private final Path file;
 
     /** Crea el almacén usando la ruta predeterminada en el directorio del usuario. */
@@ -36,6 +37,7 @@ public final class MatchSaveStore {
      *
      * @param data instantánea serializable del partido
      */
+    @Override
     public void save(MatchSaveData data) {
         if (data == null) throw new DopoSoccerException("Los datos del partido son obligatorios.");
         Path parent = file.getParent();
@@ -70,6 +72,7 @@ public final class MatchSaveStore {
      *
      * @return instantánea validada del partido guardado
      */
+    @Override
     public MatchSaveData load() {
         if (!Files.isRegularFile(file)) throw new DopoSoccerException("No hay una partida guardada.");
         try (ObjectInputStream input = new ObjectInputStream(Files.newInputStream(file))) {
@@ -103,6 +106,7 @@ public final class MatchSaveStore {
     }
 
     /** @return {@code true} si el archivo de partida existe */
+    @Override
     public boolean exists() {
         return Files.isRegularFile(file);
     }
@@ -110,5 +114,10 @@ public final class MatchSaveStore {
     /** @return ruta absoluta del archivo de guardado */
     public Path filePath() {
         return file;
+    }
+
+    @Override
+    public Optional<Path> storagePath() {
+        return Optional.of(file);
     }
 }

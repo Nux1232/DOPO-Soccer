@@ -1,7 +1,8 @@
 package domain.model.entity;
 
 /**
- * Efectos temporales aplicados a un jugador al ser impactado por un tiro especial.
+ * Efectos temporales de los tiros especiales, junto con las restricciones de control
+ * y el multiplicador de movimiento que corresponde a cada efecto.
  */
 public enum PlayerStatusEffect {
     /** Sin alteración de estado. */
@@ -12,8 +13,11 @@ public enum PlayerStatusEffect {
     ELECTRIFIED(0.50, true, false, false),
     /** Inconsciente por Tornado: lanzado al aire sin poder moverse, saltar ni patear. */
     UNCONSCIOUS(0.0, false, false, false),
-    /** Confundido por Ilusión. */
-    CONFUSED(0.65, true, true, false);
+    /**
+     * Ilusión visual: presenta varios balones idénticos sin alterar los controles,
+     * el movimiento ni las acciones disponibles del jugador.
+     */
+    CONFUSED(1.0, true, true, true);
 
     private final double movementMultiplier;
     private final boolean canMove;

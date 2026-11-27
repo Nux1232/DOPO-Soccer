@@ -10,7 +10,7 @@ import java.nio.file.Path;
 import java.util.Properties;
 
 /** Almacena y recupera perfiles permanentes de jugadores en un archivo de propiedades local. */
-public final class ProfileStore {
+public final class ProfileStore implements PlayerProfileRepository {
     private final Path file;
 
     /** Crea el almacén usando la ruta predeterminada en el directorio del usuario. */
@@ -36,6 +36,7 @@ public final class ProfileStore {
      * @param slot identificador del perfil (por ejemplo {@code "player1"})
      * @return perfil recuperado o {@code null} si aún no existe en el archivo
      */
+    @Override
     public synchronized PlayerProfile load(String slot) {
         Properties properties = read();
         String prefix = validateSlot(slot) + ".";
@@ -57,6 +58,7 @@ public final class ProfileStore {
      * @param slot identificador del perfil
      * @param profile datos de progresión a persistir
      */
+    @Override
     public synchronized void save(String slot, PlayerProfile profile) {
         if (profile == null) {
             throw new DopoSoccerException(DopoSoccerException.INVALID_PROFILE);

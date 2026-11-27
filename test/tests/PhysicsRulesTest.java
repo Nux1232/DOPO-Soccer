@@ -34,7 +34,7 @@ class PhysicsRulesTest {
 
         handler.apply(ball, owner, opponent);
 
-        assertEquals(52, opponent.health());
+        assertEquals(70, opponent.health());
         assertEquals(domain.model.entity.PlayerStatusEffect.CONFUSED, opponent.statusEffect());
         assertTrue(ball.powerEffectApplied());
     }

@@ -182,7 +182,8 @@ public class DopoSoccerGUI extends Application {
     private PlayerSnapshot toPresentationPlayer(DopoSoccer.PlayerSnapshot player) {
         return new PlayerSnapshot(player.countryName(), player.jerseyColor(), player.flagAsset(),
                 player.x(), player.y(), player.goals(), player.health(), player.maxHealth(),
-                player.powerCharge(), player.points(), player.facingDirection(), player.kicking(),
+                player.powerCharge(), player.points(), player.speed(), player.kick(), player.jump(),
+                player.survival(), player.facingDirection(), player.kicking(),
                 player.stunned(), "AURA".equals(player.power()), player.statusEffect());
     }
 

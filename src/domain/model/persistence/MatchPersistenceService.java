@@ -15,11 +15,17 @@ import java.nio.file.Path;
 
 /** Coordina el guardado y restauración de instantáneas tipadas del partido con el almacén serializable. */
 public final class MatchPersistenceService {
-    private final MatchSaveStore store;
+    private final MatchSaveRepository store;
+    private final MatchFactory matchFactory;
 
     /** Crea el servicio usando el archivo de guardado por defecto. */
     public MatchPersistenceService() {
-        this(new MatchSaveStore());
+        this(new MatchSaveStore(), new MatchFactory());
+    }
+
+    /** Crea el servicio con el repositorio de archivo predeterminado y una fábrica compartida. */
+    public MatchPersistenceService(MatchFactory matchFactory) {
+        this(new MatchSaveStore(), matchFactory);
     }
 
     /**
@@ -28,17 +34,39 @@ public final class MatchPersistenceService {
      * @param file ruta del archivo de partida guardada
      */
     public MatchPersistenceService(Path file) {
-        this(new MatchSaveStore(file));
+        this(new MatchSaveStore(file), new MatchFactory());
     }
 
     /**
-     * Crea el servicio con un almacén de persistencia inyectado.
+     * Crea el servicio para una ruta y una fábrica configurada de modalidades.
      *
-     * @param store almacén responsable de leer y escribir la partida
+     * @param file ruta del archivo de partida guardada
+     * @param matchFactory fábrica utilizada para reconstruir el tipo concreto de partido
      */
-    public MatchPersistenceService(MatchSaveStore store) {
-        if (store == null) throw new DopoSoccerException("El almacén de partidas es obligatorio.");
+    public MatchPersistenceService(Path file, MatchFactory matchFactory) {
+        this(new MatchSaveStore(file), matchFactory);
+    }
+
+    /**
+     * Crea el servicio con un repositorio serializable inyectado.
+     *
+     * @param store repositorio responsable de leer y escribir la partida
+     */
+    public MatchPersistenceService(MatchSaveRepository store) {
+        this(store, new MatchFactory());
+    }
+
+    /**
+     * Crea el servicio con repositorio y fábrica inyectados.
+     *
+     * @param store repositorio serializable responsable de leer y escribir
+     * @param matchFactory fábrica usada para reconstruir los partidos cargados
+     */
+    public MatchPersistenceService(MatchSaveRepository store, MatchFactory matchFactory) {
+        if (store == null) throw new DopoSoccerException("El repositorio de partidas es obligatorio.");
+        if (matchFactory == null) throw new DopoSoccerException("La fábrica de partidos es obligatoria.");
         this.store = store;
+        this.matchFactory = matchFactory;
     }
 
     /**
@@ -83,14 +111,15 @@ public final class MatchPersistenceService {
      */
     public LoadedMatch load() {
         MatchSaveData data = store.load();
-        Game game = MatchFactory.create(
-                data.playerMode(),
-                data.matchType(),
-                data.firstCountryId(),
-                data.secondCountryId(),
-                data.goalLimit(),
-                data.durationSeconds(),
-                data.aiProfile());
+        Game game = matchFactory.createMatch(
+                new MatchFactory.MatchParameters(
+                        data.playerMode(),
+                        data.matchType(),
+                        data.firstCountryId(),
+                        data.secondCountryId(),
+                        data.goalLimit(),
+                        data.durationSeconds(),
+                        data.aiProfile()));
 
         restore(data.firstPlayer(), game.firstPlayer());
         restore(data.secondPlayer(), game.secondPlayer());
@@ -123,7 +152,8 @@ public final class MatchPersistenceService {
 
     /** @return ruta absoluta del archivo gestionado por este servicio */
     public Path filePath() {
-        return store.filePath();
+        return store.storagePath().orElseThrow(
+                () -> new IllegalStateException("El repositorio configurado no utiliza un archivo."));
     }
 
     private MatchSaveData.PlayerState snapshot(Player player) {

@@ -239,6 +239,13 @@ public final class GameRenderer {
         graphics.restore();
     }
 
+    /**
+     * Dibuja indicadores vectoriales de los efectos para que sigan visibles aunque
+     * falten los GIF opcionales de la capa de efectos.
+     *
+     * @param graphics contexto del jugador, centrado en sus coordenadas
+     * @param player estado visual actual del jugador
+     */
     private void drawPlayerStatusOverlay(GraphicsContext graphics, PlayerSnapshot player) {
         String effect = player.statusEffect();
         if (effect != null && !"NONE".equals(effect)) {
@@ -456,7 +463,7 @@ public final class GameRenderer {
                 x - 8,
                 y - 8,
                 BAR_WIDTH + 16,
-                74,
+                94,
                 10,
                 10
         );
@@ -526,8 +533,15 @@ public final class GameRenderer {
             graphics.setTextAlign(TextAlignment.RIGHT);
             graphics.fillText(badge, x + BAR_WIDTH, y + 53);
         }
+
+        graphics.setFill(Color.web("#9fb3c8"));
+        graphics.setFont(Font.font("System", FontWeight.NORMAL, 10));
+        graphics.setTextAlign(TextAlignment.LEFT);
+        graphics.fillText("VEL " + player.speed() + " · PAT " + player.kick()
+                + " · SAL " + player.jump() + " · VIDA " + player.survival(), x, y + 72);
     }
 
+    /** Devuelve la etiqueta breve en español del estado activo para el HUD. */
     private String statusLabelFor(PlayerSnapshot player) {
         if (player.stunned()) return "ATURDIDO";
         String effect = player.statusEffect();
