@@ -75,54 +75,154 @@ public final class DopoSoccer {
     }
 
 
-    public enum MatchKind { GOALS, TIME }
-    public enum PlayerModeKind { PLAYER_VS_PLAYER, PLAYER_VS_MACHINE }
-    public enum MatchStatus { NO_MATCH, ACTIVE, FINISHED }
+    /** Modalidades de partido conocidas por la fachada. */
+    public enum MatchKind {
+        /** Partido que termina al alcanzar un límite de goles. */
+        GOALS,
+        /** Partido que termina al agotarse el tiempo configurado. */
+        TIME
+    }
 
-    /** Resumen inmutable de un país disponible para la selección en UI. */
+    /** Modos de participación disponibles para iniciar un partido. */
+    public enum PlayerModeKind {
+        /** Dos personas controlan a los jugadores. */
+        PLAYER_VS_PLAYER,
+        /** Una persona juega contra la inteligencia artificial. */
+        PLAYER_VS_MACHINE
+    }
+
+    /** Estado del ciclo de vida del partido administrado por la fachada. */
+    public enum MatchStatus {
+        /** Todavía no se ha iniciado o se ha reiniciado un partido. */
+        NO_MATCH,
+        /** Hay un partido en curso. */
+        ACTIVE,
+        /** El partido terminó. */
+        FINISHED
+    }
+
+    /** Resumen inmutable de un país disponible para la selección en UI.
+     * @param id identificador estable usado por el dominio
+     * @param displayName nombre que se muestra al usuario
+     * @param color color de camiseta asociado al país
+     * @param flagAsset recurso gráfico de la bandera
+     */
     public record CountrySummary(String id, String displayName, String color, String flagAsset) { }
 
-    /** Resumen inmutable de un perfil de IA disponible en el dominio. */
+    /** Resumen inmutable de un perfil de IA disponible en el dominio.
+     * @param id identificador del perfil
+     * @param displayName nombre legible del perfil
+     */
     public record AIProfileSummary(String id, String displayName) { }
 
-    /** Metadatos de una modalidad disponible para la interfaz de selección. */
+    /** Metadatos de una modalidad disponible para la interfaz de selección.
+     * @param id identificador estable de la modalidad
+     * @param displayName nombre que se muestra al usuario
+     * @param parameters definiciones de los campos que debe configurar la interfaz
+     */
     public record MatchTypeSummary(
             String id, String displayName, List<MatchParameterSummary> parameters) { }
 
-    /** Campo de configuración que una modalidad presenta al usuario. */
+    /** Campo de configuración que una modalidad presenta al usuario.
+     * @param id identificador del parámetro esperado por el dominio
+     * @param label etiqueta visible del campo
+     * @param defaultValue valor inicial representado como texto
+     * @param minimum límite inferior, o longitud mínima para campos de texto
+     * @param maximum límite superior, o longitud máxima para campos de texto
+     * @param multiplier factor para convertir el valor de entrada a la unidad del dominio
+     * @param type tipo de control que debe presentar la interfaz
+     * @param options opciones permitidas cuando el campo es de selección
+     */
     public record MatchParameterSummary(
             String id, String label, String defaultValue, int minimum, int maximum, int multiplier,
             String type, List<String> options) { }
 
-    /** Resumen inmutable de la progresión persistente de un jugador. */
+    /** Resumen inmutable de la progresión persistente de un jugador.
+     * @param speed nivel de velocidad
+     * @param kick nivel de potencia de tiro
+     * @param jump nivel de salto
+     * @param survival nivel de supervivencia
+     * @param points puntos disponibles para comprar mejoras
+     * @param nextUpgradeCost coste de la siguiente mejora
+     */
     public record PlayerProfileSummary(int speed, int kick, int jump, int survival, int points, int nextUpgradeCost) { }
 
-    /** Contrato público para iniciar un partido, sin exponer entidades. */
+    /** Contrato público para iniciar un partido, sin exponer entidades.
+     * @param playerMode modo de participación
+     * @param matchType identificador de la modalidad
+     * @param firstCountry identificador del país del primer jugador
+     * @param secondCountry identificador del país del segundo jugador
+     * @param aiProfile identificador del perfil de IA; puede ser {@code null} para usar el perfil predeterminado
+     * @param parameters valores de configuración asociados a los identificadores de parámetros de la modalidad
+     */
     public record MatchRequest(PlayerModeKind playerMode, String matchType,
             String firstCountry, String secondCountry, String aiProfile, Map<String, String> parameters) {
+        /** Crea una solicitud compatible con límites genéricos anteriores.
+         * @param mode modo de participación
+         * @param type identificador de la modalidad
+         * @param first identificador del país del primer jugador
+         * @param second identificador del país del segundo jugador
+         * @param goals límite de goles para la modalidad correspondiente
+         * @param seconds duración en segundos para la modalidad correspondiente
+         * @param profile identificador del perfil de IA
+         */
         public MatchRequest(PlayerModeKind mode, String type, String first, String second,
                 int goals, int seconds, String profile) {
             this(mode, type, first, second, profile, legacyParameters(type, goals, seconds, Map.of()));
         }
 
-        /** Compatibilidad con solicitudes previas que incluían límites genéricos. */
+        /** Compatibilidad con solicitudes previas que incluían límites genéricos.
+         * @param mode modo de participación
+         * @param type identificador de la modalidad
+         * @param first identificador del país del primer jugador
+         * @param second identificador del país del segundo jugador
+         * @param goals límite de goles para la modalidad correspondiente
+         * @param seconds duración en segundos para la modalidad correspondiente
+         * @param profile identificador del perfil de IA
+         * @param parameters valores adicionales de configuración
+         */
         public MatchRequest(PlayerModeKind mode, String type, String first, String second,
                 int goals, int seconds, String profile, Map<String, String> parameters) {
             this(mode, type, first, second, profile, legacyParameters(type, goals, seconds, parameters));
         }
 
+        /** Crea una solicitud usando el tipo de modalidad heredado.
+         * @param mode modo de participación
+         * @param type modalidad conocida por la fachada
+         * @param first identificador del país del primer jugador
+         * @param second identificador del país del segundo jugador
+         * @param goals límite de goles para la modalidad correspondiente
+         * @param seconds duración en segundos para la modalidad correspondiente
+         * @param profile identificador del perfil de IA
+         */
         public MatchRequest(PlayerModeKind mode, MatchKind type, String first, String second,
                 int goals, int seconds, String profile) {
             this(mode, type == null ? null : type.name().toLowerCase(java.util.Locale.ROOT),
                     first, second, goals, seconds, profile, Map.of());
         }
 
+        /** Crea una solicitud heredada con el perfil de IA predeterminado.
+         * @param mode modo de participación
+         * @param type modalidad conocida por la fachada
+         * @param first identificador del país del primer jugador
+         * @param second identificador del país del segundo jugador
+         * @param goals límite de goles para la modalidad correspondiente
+         * @param seconds duración en segundos para la modalidad correspondiente
+         */
         public MatchRequest(PlayerModeKind mode, MatchKind type, String first, String second,
                 int goals, int seconds) {
             this(mode, type == null ? null : type.name().toLowerCase(java.util.Locale.ROOT),
                     first, second, goals, seconds, "EXPERT", Map.of());
         }
 
+        /** Crea una solicitud heredada con tipo de modalidad textual y perfil predeterminado.
+         * @param mode modo de participación
+         * @param type identificador de la modalidad
+         * @param first identificador del país del primer jugador
+         * @param second identificador del país del segundo jugador
+         * @param goals límite de goles para la modalidad correspondiente
+         * @param seconds duración en segundos para la modalidad correspondiente
+         */
         public MatchRequest(PlayerModeKind mode, String type, String first, String second,
                 int goals, int seconds) {
             this(mode, type, first, second, goals, seconds, "EXPERT", Map.of());
@@ -147,17 +247,62 @@ public final class DopoSoccer {
         return Map.copyOf(values);
     }
 
-    /** Acciones abstractas independientes del teclado o dispositivo. */
+    /**
+     * Acciones abstractas independientes del teclado o dispositivo.
+     *
+     * @param left indica si se solicita movimiento hacia la izquierda
+     * @param right indica si se solicita movimiento hacia la derecha
+     * @param jump indica si se solicita saltar
+     * @param kick indica si se solicita patear
+     * @param power indica si se solicita activar el poder
+     */
     public record PlayerActions(boolean left, boolean right, boolean jump, boolean kick, boolean power) { }
 
-    /** Estado de jugador de solo lectura para construir una representación visual. */
+    /**
+     * Estado de jugador de solo lectura para construir una representación visual.
+     *
+     * @param countryName nombre visible del país
+     * @param jerseyColor color de camiseta
+     * @param flagAsset recurso gráfico de la bandera
+     * @param x posición horizontal del jugador
+     * @param y posición vertical del jugador
+     * @param goals goles anotados por el jugador
+     * @param health salud actual
+     * @param maxHealth salud máxima
+     * @param powerCharge carga disponible para el poder
+     * @param points puntos de progresión del jugador
+     * @param speed nivel de velocidad
+     * @param kick nivel de potencia de tiro
+     * @param jump nivel de salto
+     * @param survival nivel de supervivencia
+     * @param facingDirection dirección hacia la que mira el jugador
+     * @param kicking indica si está ejecutando una patada
+     * @param stunned indica si está aturdido
+     * @param power nombre visible de su poder
+     * @param statusEffect efecto de estado activo representado como texto
+     */
     public record PlayerSnapshot(String countryName, String jerseyColor, String flagAsset, double x, double y,
             int goals, double health, double maxHealth, double powerCharge, int points,
             int speed, int kick, int jump, int survival,
             int facingDirection, boolean kicking, boolean stunned, String power,
             String statusEffect) { }
 
-    /** Estado de partido de solo lectura. No expone entidades modificables. */
+    /**
+     * Estado de partido de solo lectura. No expone entidades modificables.
+     *
+     * @param width ancho del campo
+     * @param height alto del área de juego
+     * @param groundY coordenada vertical del suelo
+     * @param goalTop coordenada vertical superior de la portería
+     * @param goalDepth profundidad de la portería
+     * @param modeDescription descripción visible de la modalidad
+     * @param finished indica si el partido terminó
+     * @param winner ganador: {@code 0} empate, {@code 1} primer jugador o {@code 2} segundo jugador
+     * @param firstPlayer estado del primer jugador
+     * @param secondPlayer estado del segundo jugador
+     * @param machineOpponent indica si el segundo jugador es controlado por la IA
+     * @param ball estado del balón y del tiro especial activo, si existe
+     */
     public record MatchSnapshot(double width, double height, double groundY, double goalTop, double goalDepth,
             String modeDescription, boolean finished, int winner,
             PlayerSnapshot firstPlayer, PlayerSnapshot secondPlayer, boolean machineOpponent,
@@ -192,10 +337,26 @@ public final class DopoSoccer {
         }
     }
 
-    /** Estado del balón agrupado con la representación del tiro que lo afecta. */
+    /**
+     * Estado del balón agrupado con la representación del tiro que lo afecta.
+     *
+     * @param x posición horizontal del balón
+     * @param y posición vertical del balón
+     * @param radius radio del balón
+     * @param powerShot datos del tiro especial activo, o {@code null} si no hay uno
+     */
     public record BallSnapshot(double x, double y, double radius, PowerShotSnapshot powerShot) { }
 
-    /** Datos visuales cohesivos de un tiro especial activo. */
+    /**
+     * Datos visuales cohesivos de un tiro especial activo.
+     *
+     * @param id identificador del tipo de tiro
+     * @param asset recurso gráfico asociado
+     * @param color color usado para representarlo
+     * @param duration duración total del efecto
+     * @param elapsed tiempo transcurrido desde su activación
+     * @param renderCopies indica si deben dibujarse copias visuales
+     */
     public record PowerShotSnapshot(
             String id, String asset, String color, double duration, double elapsed, boolean renderCopies) { }
 
