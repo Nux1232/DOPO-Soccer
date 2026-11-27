@@ -4,8 +4,7 @@ import domain.model.exception.DopoSoccerException;
 
 /** Base abstracta para personajes: identidad y comportamiento de su poder. */
 public abstract class Country implements Power {
-    private static final double POWER_DAMAGE_MULTIPLIER = 6.0;
-
+    private static final double POWER_DAMAGE_MULTIPLIER = 5.0;
     private final String id, displayName, color, flagAsset;
     private final double duration, baseDamage, speedX, speedY, restitution;
     private final PlayerStatusEffect effect;

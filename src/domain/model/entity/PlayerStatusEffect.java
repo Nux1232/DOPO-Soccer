@@ -6,7 +6,7 @@ package domain.model.entity;
 public enum PlayerStatusEffect {
     NONE(1.0, true, true, true),
     PUSHED(0.0, false, false, false),
-    ELECTRIFIED(0.25, true, false, false),
+    ELECTRIFIED(0.50, true, false, false),
     UNCONSCIOUS(0.0, false, false, false),
     CONFUSED(0.65, true, true, false);
 
