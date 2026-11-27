@@ -89,7 +89,7 @@ public final class TimeGame extends Game {
 
     @Override
     public void restoreMatchConfiguration(MatchConfiguration configuration) {
-        if (configuration == null || configuration.type() != MatchType.TIME
+        if (configuration == null || !MatchType.TIME.equals(configuration.type())
                 || configuration.durationSeconds() != durationSeconds()) {
             throw new DopoSoccerException("La configuración guardada no corresponde a este partido.");
         }

@@ -7,6 +7,7 @@ import domain.model.entity.CountryCatalog;
 import domain.model.entity.LPlayer;
 import domain.model.entity.Player;
 import domain.model.entity.PlayerStatusEffect;
+import domain.model.entity.ProjectilePower;
 import domain.model.entity.Power;
 import domain.model.entity.PowerState;
 import domain.model.game.Game;
@@ -32,6 +33,7 @@ class PowerShotTest {
 
         assertSame(southKorea, sameCountry);
         assertEquals(4, CountryCatalog.all().size());
+        assertEquals("Camerún", CountryCatalog.get("CM").displayName());
         assertSame(southKorea.power(), customCountry.power());
         assertEquals("custom-country", customCountry.id());
     }
@@ -44,19 +46,19 @@ class PowerShotTest {
         Country usa = CountryFactory.create("USA");
 
         // Daños base del Anexo 1: Corea=40, Camerún=60, Nigeria=40, USA=30
-        assertEquals(40, southKorea.power().damage());
-        assertEquals(60, cameroon.power().damage());
-        assertEquals(40, nigeria.power().damage());
-        assertEquals(30, usa.power().damage());
-        assertEquals(1.5, southKorea.power().durationSeconds());
-        assertEquals(3.0, cameroon.power().durationSeconds());
-        assertEquals(3.0, nigeria.power().durationSeconds());
-        assertEquals(2.5, usa.power().durationSeconds());
-        assertEquals("Ko_power.gif", southKorea.power().visualAsset());
-        assertEquals("Cm_power.gif", cameroon.power().visualAsset());
-        assertEquals("Ng_power.gif", nigeria.power().visualAsset());
-        assertEquals("usa-illusion.gif", usa.power().visualAsset());
-        assertTrue(usa.power().renderCopies());
+        assertEquals(40, projectile(southKorea).damage());
+        assertEquals(60, projectile(cameroon).damage());
+        assertEquals(40, projectile(nigeria).damage());
+        assertEquals(30, projectile(usa).damage());
+        assertEquals(1.5, projectile(southKorea).durationSeconds());
+        assertEquals(3.0, projectile(cameroon).durationSeconds());
+        assertEquals(3.0, projectile(nigeria).durationSeconds());
+        assertEquals(2.5, projectile(usa).durationSeconds());
+        assertEquals("Ko_power.gif", projectile(southKorea).visualAsset());
+        assertEquals("Cm_power.gif", projectile(cameroon).visualAsset());
+        assertEquals("Ng_power.gif", projectile(nigeria).visualAsset());
+        assertEquals("usa-illusion.gif", projectile(usa).visualAsset());
+        assertTrue(projectile(usa).renderCopies());
     }
 
     @Test
@@ -71,10 +73,10 @@ class PowerShotTest {
         new PhysicsEngine().kick(kicker, ball, 1);
 
         assertEquals(PowerState.NONE, kicker.power());
-        assertSame(country.power(), ball.activePowerShot());
+        assertSame(projectile(country), ball.activePowerShot());
         assertSame(kicker, ball.powerShotOwner());
-        assertEquals(country.power().horizontalSpeed(), ball.velocityX());
-        assertEquals(country.power().verticalSpeed(), ball.velocityY());
+        assertEquals(projectile(country).horizontalSpeed(), ball.velocityX());
+        assertEquals(projectile(country).verticalSpeed(), ball.velocityY());
     }
 
     @Test
@@ -95,7 +97,40 @@ class PowerShotTest {
         physics.update(game, PlayerInput.NONE, PlayerInput.NONE, 1.0 / 60.0);
 
         assertEquals(PowerState.NONE, player.power());
-        assertSame(player.country().power(), game.ball().activePowerShot());
+        assertSame(projectile(player.country()), game.ball().activePowerShot());
+    }
+
+    @Test
+    void nonProjectilePowersCanImplementTheirOwnActivationBehavior() throws Exception {
+        Power power = new Power() {
+            @Override
+            public String id() {
+                return "temporary-confusion";
+            }
+
+            @Override
+            public void activate(domain.model.entity.PowerActivationContext context) {
+                context.owner().applyStatusEffect(PlayerStatusEffect.CONFUSED, 2.0);
+            }
+        };
+        Country ownerCountry = new Country("custom", "Personalizado", "#ffffff", "custom.png", power);
+        PhysicsEngine physics = new PhysicsEngine();
+        Game game = new Game(
+                PlayerMode.PLAYER_VS_PLAYER,
+                ownerCountry,
+                CountryFactory.create("CM"),
+                physics);
+        game.restoreKickoffDelay(0);
+        Player owner = game.firstPlayer();
+        owner.tick(Player.POWER_CHARGE_SECONDS);
+        assertTrue(owner.activatePower());
+        game.ball().setPosition(owner.x() + 20, owner.y());
+
+        physics.update(game, PlayerInput.NONE, PlayerInput.NONE, 1.0 / 60.0);
+
+        assertEquals(PowerState.NONE, owner.power());
+        assertEquals(PlayerStatusEffect.CONFUSED, owner.statusEffect());
+        assertNull(game.ball().activePowerShot());
     }
 
     @Test
@@ -139,7 +174,7 @@ class PowerShotTest {
     void activePowerExpiresAndRemovesItsVisualState() {
         Ball ball = new Ball(100, 100);
         Player owner = new LPlayer(CountryFactory.create("USA"), 100);
-        Power power = owner.country().power();
+        ProjectilePower power = (ProjectilePower) owner.country().power();
         ball.startPowerShot(power, owner);
 
         ball.tickPowerShot(power.durationSeconds() - 0.01);
@@ -149,5 +184,9 @@ class PowerShotTest {
         assertNull(ball.activePowerShot());
         assertEquals(0, ball.powerShotTime());
         assertFalse(ball.powerEffectApplied());
+    }
+
+    private ProjectilePower projectile(Country country) {
+        return (ProjectilePower) country.power();
     }
 }

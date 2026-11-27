@@ -3,6 +3,8 @@ package domain.model.physics;
 import domain.model.entity.Ball;
 import domain.model.entity.Player;
 import domain.model.entity.Power;
+import domain.model.entity.PowerActivationContext;
+import domain.model.entity.ProjectilePower;
 import domain.model.entity.PowerState;
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
@@ -150,8 +152,8 @@ public class PhysicsEngine implements PhysicsSimulation {
         syncBodyToBall(ballBody, ball);
 
         if (!kickoffLocked) {
-            triggerPowerShotOnTouch(first, ball);
-            triggerPowerShotOnTouch(second, ball);
+            triggerPowerOnTouch(first, second, ball);
+            triggerPowerOnTouch(second, first, ball);
         }
         powerShotImpactHandler.apply(ball, first, second);
 
@@ -166,7 +168,7 @@ public class PhysicsEngine implements PhysicsSimulation {
      * @param player jugador cuyo cuerpo está en contacto con el balón
      * @param ball balón con el que ha entrado en contacto
      */
-    private void triggerPowerShotOnTouch(Player player, Ball ball) {
+    private void triggerPowerOnTouch(Player player, Player opponent, Ball ball) {
         if (player.power() != PowerState.AURA || player.stunned()
                 || ball.activePowerShot() != null) {
             return;
@@ -178,25 +180,36 @@ public class PhysicsEngine implements PhysicsSimulation {
         int dir = Math.abs(ball.x() - player.x()) > 1e-6
                 ? (ball.x() > player.x() ? 1 : -1)
                 : player.facingDirection();
-        launchPowerShot(player, ball, dir);
+        activatePower(player, opponent, ball, dir);
     }
 
     /**
-     * Consume el aura del jugador y aplica al balón la velocidad y restitución del poder.
+     * Consume el aura y delega la activación en el comportamiento propio del poder.
      *
      * @param player jugador que activa el poder
+     * @param opponent rival del jugador
      * @param ball balón sobre el que se ejecuta el tiro
      * @param dir dirección horizontal del disparo ({@code -1} izquierda, {@code 1} derecha)
      */
-    private void launchPowerShot(Player player, Ball ball, int dir) {
-        Power powerShot = player.country().power();
-        if (powerShot != null && player.consumePower()) {
+    private void activatePower(Player player, Player opponent, Ball ball, int dir) {
+        Power power = player.country().power();
+        if (player.consumePower()) {
             player.setFacingDirection(dir);
-            ball.startPowerShot(powerShot, player);
-            ball.setVelocity(dir * powerShot.horizontalSpeed(), powerShot.verticalSpeed());
-            ballBody.getFixture(0).setRestitution(powerShot.restitution());
-            syncBallToBody(ball, ballBody);
+            PowerActivationContext context = new PowerActivationContext(player, opponent, dir);
+            if (power instanceof ProjectilePower projectile) {
+                projectile.activateProjectile(
+                        context, ball, active -> launchProjectile(player, ball, dir, active));
+            } else {
+                power.activate(context);
+            }
         }
+    }
+
+    private void launchProjectile(Player player, Ball ball, int direction, ProjectilePower projectile) {
+        ball.startPowerShot(projectile, player);
+        ball.setVelocity(direction * projectile.horizontalSpeed(), projectile.verticalSpeed());
+        ballBody.getFixture(0).setRestitution(projectile.restitution());
+        syncBallToBody(ball, ballBody);
     }
 
     /**
@@ -237,8 +250,11 @@ public class PhysicsEngine implements PhysicsSimulation {
 
         if (distBall <= kickRange) {
             if (kicker.power() == PowerState.AURA) {
-                launchPowerShot(kicker, ball, dir);
+                activatePower(kicker, opponent, ball, dir);
             } else {
+                if (ball.activePowerShot() != null) {
+                    return;
+                }
                 ball.clearPowerShot();
                 ball.setVelocity(dir * config.kickSpeedX(), config.kickSpeedY());
                 ballBody.getFixture(0).setRestitution(0.72);

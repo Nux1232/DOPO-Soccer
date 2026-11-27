@@ -5,6 +5,7 @@ import domain.model.ai.AIProfile;
 import domain.model.entity.Ball;
 import domain.model.entity.Player;
 import domain.model.entity.Power;
+import domain.model.entity.ProjectilePower;
 import domain.model.entity.PowerState;
 import domain.model.entity.PlayerStatusEffect;
 import domain.model.exception.DopoSoccerException;
@@ -94,6 +95,7 @@ public final class MatchPersistenceService {
                 configuration.durationSeconds(),
                 configuration.remainingSeconds(),
                 configuration.suddenDeath(),
+                configuration.parameters(),
                 game.kickoffDelaySeconds(),
                 game.winner(),
                 game.isFinished(),
@@ -119,7 +121,8 @@ public final class MatchPersistenceService {
                         data.secondCountryId(),
                         data.goalLimit(),
                         data.durationSeconds(),
-                        data.aiProfile()));
+                        data.aiProfile(),
+                        data.matchParameters()));
 
         restore(data.firstPlayer(), game.firstPlayer());
         restore(data.secondPlayer(), game.secondPlayer());
@@ -131,14 +134,16 @@ public final class MatchPersistenceService {
         ball.setVelocity(ballState.velocityX(), ballState.velocityY());
         if (ballState.powerId() != null) {
             Player owner = ballState.powerOwner() == 1 ? game.firstPlayer() : game.secondPlayer();
-            if (!owner.country().power().id().equals(ballState.powerId())) {
+            if (!(owner.country().power() instanceof ProjectilePower projectile)
+                    || !projectile.id().equals(ballState.powerId())) {
                 throw new DopoSoccerException("El tiro guardado no coincide con su propietario.");
             }
-            ball.restorePowerShot(owner.country().power(), owner, ballState.powerTime(),
+            ball.restorePowerShot(projectile, owner, ballState.powerTime(),
                     ballState.powerEffectApplied());
         }
         game.restoreMatchConfiguration(new MatchConfiguration(data.matchType(), data.goalLimit(),
-                data.durationSeconds(), data.remainingSeconds(), data.suddenDeath()));
+                data.durationSeconds(), data.remainingSeconds(), data.suddenDeath(),
+                data.matchParameters()));
         if (data.finished()) {
             game.restoreLifecycle(data.winner());
         }
@@ -178,7 +183,7 @@ public final class MatchPersistenceService {
     }
 
     private MatchSaveData.BallState snapshot(Ball ball, Game game) {
-        Power power = ball.activePowerShot();
+        ProjectilePower power = ball.activePowerShot();
         int owner = ball.powerShotOwner() == game.firstPlayer() ? 1
                 : ball.powerShotOwner() == game.secondPlayer() ? 2 : 0;
         if ((power == null) != (owner == 0)) {

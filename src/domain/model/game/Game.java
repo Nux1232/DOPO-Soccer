@@ -4,8 +4,7 @@ package domain.model.game;
 import domain.model.entity.Ball;
 import domain.model.entity.Country;
 import domain.model.entity.Player;
-import domain.model.entity.LPlayer;
-import domain.model.entity.RPlayer;
+import domain.model.entity.PlayerSide;
 import domain.model.exception.DopoSoccerException;
 import domain.model.physics.PhysicsEngine;
 import domain.model.physics.PhysicsSimulation;
@@ -61,8 +60,8 @@ public class Game {
         }
         this.playerMode = playerMode;
         this.physicsSimulation = physicsSimulation;
-        this.firstPlayer = new LPlayer(firstCountry, WIDTH / 2 - 60);
-        this.secondPlayer = new RPlayer(secondCountry, WIDTH / 2 + 60);
+        this.firstPlayer = new Player(firstCountry, WIDTH / 2 - 60, PlayerSide.LEFT);
+        this.secondPlayer = new Player(secondCountry, WIDTH / 2 + 60, PlayerSide.RIGHT);
 
         this.ball = new Ball(WIDTH / 2, 160);
         prepareKickoff();
@@ -250,7 +249,7 @@ public class Game {
      * @throws DopoSoccerException si la configuración no corresponde al tipo de partido
      */
     public void restoreMatchConfiguration(MatchConfiguration configuration) {
-        if (configuration == null || configuration.type() != MatchType.GOALS) {
+        if (configuration == null || !MatchType.GOALS.equals(configuration.type())) {
             throw new DopoSoccerException("La configuración guardada no corresponde a este partido.");
         }
     }

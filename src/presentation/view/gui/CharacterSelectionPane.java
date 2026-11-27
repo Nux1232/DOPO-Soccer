@@ -2,6 +2,7 @@ package presentation.view.gui;
 import presentation.model.AIProfileOption;
 import presentation.model.CountryOption;
 import presentation.model.MatchSetup;
+import presentation.model.MatchTypeOption;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -17,6 +18,8 @@ import javafx.scene.control.TextFormatter;
 import javafx.scene.control.ScrollPane;
 import javafx.util.StringConverter;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 /**
  * Pantalla de selección de personajes.
@@ -32,6 +35,7 @@ public class CharacterSelectionPane extends StackPane {
     private final MatchSetup matchConfig;
     private final List<CountryOption> countries;
     private final List<AIProfileOption> aiProfiles;
+    private final List<MatchTypeOption> matchTypes;
     private final Consumer<MatchSetup> onStartMatch;
     private final Runnable onBack;
     private final Runnable onImprove;
@@ -49,12 +53,14 @@ public class CharacterSelectionPane extends StackPane {
     public CharacterSelectionPane(MatchSetup matchConfig,
                                   List<CountryOption> countries,
                                   List<AIProfileOption> aiProfiles,
+                                  List<MatchTypeOption> matchTypes,
                                   Consumer<MatchSetup> onStartMatch,
                                   Runnable onBack,
                                   Runnable onImprove) {
         this.matchConfig = matchConfig;
         this.countries = List.copyOf(countries);
         this.aiProfiles = List.copyOf(aiProfiles);
+        this.matchTypes = List.copyOf(matchTypes);
         this.onStartMatch = onStartMatch;
         this.onBack = onBack;
         this.onImprove = onImprove;
@@ -103,101 +109,83 @@ public class CharacterSelectionPane extends StackPane {
         matchTypeLabel.setMinHeight(30);
         matchTypeLabel.setAlignment(Pos.CENTER);
 
-        ComboBox<MatchSetup.Type> matchTypeSelector = new ComboBox<>();
-        matchTypeSelector.getItems().setAll(MatchSetup.Type.values());
-        matchTypeSelector.setValue(matchConfig.type());
+        ComboBox<MatchTypeOption> matchTypeSelector = new ComboBox<>();
+        matchTypeSelector.getItems().setAll(matchTypes);
+        MatchTypeOption selectedType = matchTypes.stream()
+                .filter(type -> type.id().equals(matchConfig.matchType()))
+                .findFirst()
+                .orElse(matchTypes.isEmpty() ? null : matchTypes.get(0));
+        if (selectedType != null) {
+            matchConfig.matchType(selectedType.id());
+            matchTypeSelector.setValue(selectedType);
+        }
         matchTypeSelector.setPrefWidth(190);
         matchTypeSelector.setPrefHeight(38);
 
         matchTypeSelector.setConverter(new StringConverter<>() {
             @Override
-            public String toString(MatchSetup.Type type) {
-                if (type == null) return "";
-                if (type == MatchSetup.Type.GOALS) {
-                    return "GOLES";
-                }
-                return "POR TIEMPO";
+            public String toString(MatchTypeOption type) {
+                return type == null ? "" : type.displayName();
             }
 
             @Override
-            public MatchSetup.Type fromString(String value) {
-                return null;
+            public MatchTypeOption fromString(String value) {
+                return matchTypes.stream()
+                        .filter(type -> type.displayName().equals(value))
+                        .findFirst()
+                        .orElse(null);
             }
         });
 
 
-        TextField goalsSelector = new TextField(String.valueOf(matchConfig.goalLimit()));
-        goalsSelector.setPrefWidth(110);
-        goalsSelector.setPrefHeight(38);
-        goalsSelector.setPromptText("Ej. 10");
-
-        goalsSelector.setTextFormatter(new TextFormatter<String>(change ->
-                change.getControlNewText().matches("\\d*") ? change : null
-        ));
-
-        goalsSelector.textProperty().addListener((obs, oldValue, newValue) -> {
-            if (!newValue.isBlank()) {
-                try {
-                    matchConfig.goalLimit(Integer.parseInt(newValue));
-                } catch (NumberFormatException ignored) {
-                    // Se conserva el último valor válido.
-                }
+        VBox parameterBox = new VBox(8);
+        Map<String, TextField> parameterFields = new HashMap<>();
+        parameterBox.setAlignment(Pos.CENTER_LEFT);
+        Runnable updateParameters = () -> {
+            parameterBox.getChildren().clear();
+            parameterFields.clear();
+            MatchTypeOption selected = matchTypeSelector.getValue();
+            if (selected == null) return;
+            for (MatchTypeOption.Parameter parameter : selected.parameters()) {
+                Label label = new Label(parameter.label());
+                label.setStyle("-fx-text-fill: #c8d9eb; -fx-font-size: 12px; -fx-font-weight: bold;");
+                TextField field = new TextField(
+                        matchConfig.parameter(parameter.id(), parameter.defaultValue()));
+                field.setPrefWidth(140);
+                field.setPrefHeight(38);
+                field.setTextFormatter(new TextFormatter<String>(change ->
+                        change.getControlNewText().matches("\\d*") ? change : null));
+                matchConfig.setParameter(parameter.id(), field.getText());
+                applyMatchParameter(parameter, field.getText());
+                field.textProperty().addListener((obs, oldValue, newValue) -> {
+                    if (newValue.isBlank()) return;
+                    try {
+                        int value = Integer.parseInt(newValue);
+                        if (value < parameter.minimum() || value > parameter.maximum()) return;
+                        matchConfig.setParameter(parameter.id(), newValue);
+                        applyMatchParameter(parameter, newValue);
+                    } catch (ArithmeticException | NumberFormatException ignored) {
+                        // Se conserva el último valor válido hasta que el campo sea corregido.
+                    }
+                });
+                parameterFields.put(parameter.id(), field);
+                parameterBox.getChildren().add(new VBox(5, label, field));
             }
-        });
+        };
+        updateParameters.run();
 
-        TextField timeSelector = new TextField(
-                String.valueOf(matchConfig.durationSeconds() / 60)
-        );
-        timeSelector.setPrefWidth(110);
-        timeSelector.setPrefHeight(38);
-        timeSelector.setPromptText("Ej. 4");
-
-        timeSelector.setTextFormatter(new TextFormatter<String>(change ->
-                change.getControlNewText().matches("\\d*") ? change : null
-        ));
-
-        timeSelector.textProperty().addListener((obs, oldValue, newValue) -> {
-            if (!newValue.isBlank()) {
-                try {
-                    matchConfig.durationSeconds(Math.multiplyExact(Integer.parseInt(newValue), 60));
-                } catch (NumberFormatException ignored) {
-                    // El valor se valida automaticamente
-                }
-            }
-        });
-
-
-        // Etiquetas de configuración
-        Label goalsLabel = new Label("Límite de goles");
-        goalsLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
-
-        Label timeLabel = new Label("Duración (minutos)");
-        timeLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
-
-        VBox goalsBox = new VBox(6, goalsLabel, goalsSelector);
-        goalsBox.setAlignment(Pos.CENTER_LEFT);
-
-        VBox timeBox = new VBox(6, timeLabel, timeSelector);
-        timeBox.setAlignment(Pos.CENTER_LEFT);
-
-        // Mostrar únicamente el parámetro correspondiente
         Runnable updateMatchOptions = () -> {
-            boolean goalMode = matchConfig.type() == MatchSetup.Type.GOALS;
-
-            goalsBox.setVisible(goalMode);
-            goalsBox.setManaged(goalMode);
-
-            timeBox.setVisible(!goalMode);
-            timeBox.setManaged(!goalMode);
+            updateParameters.run();
         };
 
         matchTypeSelector.setOnAction(event -> {
-            MatchSetup.Type selected = matchTypeSelector.getValue();
+            MatchTypeOption selected = matchTypeSelector.getValue();
 
             if (selected != null) {
-                matchConfig.type(selected);
+                matchConfig.matchType(selected.id());
                 updateMatchOptions.run();
             }
+
         });
 
         updateMatchOptions.run();
@@ -214,26 +202,10 @@ public class CharacterSelectionPane extends StackPane {
         VBox modeBox = new VBox(7, modeLabel, matchTypeSelector);
         modeBox.setAlignment(Pos.CENTER);
 
-        goalsLabel.setText("LÍMITE DE GOLES");
-        timeLabel.setText("DURACIÓN (MINUTOS)");
-
-        goalsLabel.setStyle(
-                "-fx-text-fill: #c8d9eb;" +
-                        "-fx-font-size: 12px;" +
-                        "-fx-font-weight: bold;"
-        );
-
-        timeLabel.setStyle(
-                "-fx-text-fill: #c8d9eb;" +
-                        "-fx-font-size: 12px;" +
-                        "-fx-font-weight: bold;"
-        );
-
         VBox settingsOptions = new VBox();
         HBox settingsRow = new HBox(18,
                 modeBox,
-                goalsBox,
-                timeBox
+                parameterBox
         );
 
         settingsRow.setAlignment(Pos.CENTER);
@@ -421,7 +393,31 @@ public class CharacterSelectionPane extends StackPane {
                 )
         );
 
-        startButton.setOnAction(event -> startMatch());
+        startButton.setOnAction(event -> {
+            MatchTypeOption selected = matchTypeSelector.getValue();
+            if (selected != null) {
+                for (MatchTypeOption.Parameter parameter : selected.parameters()) {
+                    TextField field = parameterFields.get(parameter.id());
+                    try {
+                        int value = Integer.parseInt(field.getText());
+                        if (value < parameter.minimum() || value > parameter.maximum()) {
+                            throw new NumberFormatException();
+                        }
+                        Math.multiplyExact(value, parameter.multiplier());
+                    } catch (ArithmeticException | NumberFormatException exception) {
+                        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+                                javafx.scene.control.Alert.AlertType.WARNING);
+                        alert.setTitle("Configuración inválida");
+                        alert.setHeaderText("Revisa los parámetros del partido");
+                        alert.setContentText(parameter.label() + " debe estar entre "
+                                + parameter.minimum() + " y " + parameter.maximum() + ".");
+                        alert.showAndWait();
+                        return;
+                    }
+                }
+            }
+            startMatch();
+        });
 
         Button improveButton = new Button("MEJORAR ESTADÍSTICAS");
         improveButton.setPrefWidth(260);
@@ -476,7 +472,17 @@ public class CharacterSelectionPane extends StackPane {
 
         getChildren().setAll(background, backgroundTint, scrollPane);
         StackPane.setAlignment(scrollPane, Pos.CENTER);
+    }
 
+    private void applyMatchParameter(MatchTypeOption.Parameter parameter, String text) {
+        try {
+            int configuredValue = Math.multiplyExact(
+                    Integer.parseInt(text), parameter.multiplier());
+            if ("goalLimit".equals(parameter.id())) matchConfig.goalLimit(configuredValue);
+            if ("durationSeconds".equals(parameter.id())) matchConfig.durationSeconds(configuredValue);
+        } catch (ArithmeticException | NumberFormatException ignored) {
+            // Se mantiene el último valor válido mientras el campo se edita.
+        }
     }
 
     private VBox createPlayerCard(String heading, String selectedCountryId, boolean firstPlayer) {

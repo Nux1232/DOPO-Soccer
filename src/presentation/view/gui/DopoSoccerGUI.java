@@ -15,6 +15,7 @@ import presentation.model.GameSnapshot;
 import presentation.model.GameSnapshot.PlayerSnapshot;
 import presentation.model.PlayerControls;
 import presentation.model.MatchSetup;
+import presentation.model.MatchTypeOption;
 
 
 /** Punto de composición y coordinador de presentación. Único puente hacia el dominio. */
@@ -37,7 +38,10 @@ public class DopoSoccerGUI extends Application {
     @Override
     public void start(Stage stage) {
         primaryStage = stage;
-        dopoSoccer = new DopoSoccer();
+        dopoSoccer = createDomain();
+        if (dopoSoccer == null) {
+            throw new IllegalStateException("La fábrica de la aplicación devolvió un dominio nulo.");
+        }
         stage.setTitle(APP_TITLE);
         var iconUrl = getClass().getResource(APP_ICON);
         if (iconUrl != null) {
@@ -46,6 +50,16 @@ public class DopoSoccerGUI extends Application {
         stage.setMinWidth(WINDOW_WIDTH);
         stage.setMinHeight(WINDOW_HEIGHT);
         showMainMenu();
+    }
+
+    /**
+     * Punto de composición sustituible para registrar modalidades y repositorios propios.
+     * Las aplicaciones que extiendan la interfaz pueden inyectar una fachada configurada.
+     *
+     * @return fachada del dominio utilizada durante esta sesión
+     */
+    protected DopoSoccer createDomain() {
+        return new DopoSoccer();
     }
 
     private void showMainMenu() {
@@ -63,7 +77,14 @@ public class DopoSoccerGUI extends Application {
         List<AIProfileOption> aiProfiles = dopoSoccer.availableAIProfiles().stream()
                 .map(p -> new AIProfileOption(p.id(), p.displayName()))
                 .toList();
-        navigate(new CharacterSelectionPane(matchConfig, countries, aiProfiles,
+        List<MatchTypeOption> matchTypes = dopoSoccer.availableMatchTypes().stream()
+                .map(type -> new MatchTypeOption(type.id(), type.displayName(),
+                        type.parameters().stream().map(parameter -> new MatchTypeOption.Parameter(
+                                parameter.id(), parameter.label(), parameter.defaultValue(),
+                                parameter.minimum(), parameter.maximum(), parameter.multiplier()))
+                                .toList()))
+                .toList();
+        navigate(new CharacterSelectionPane(matchConfig, countries, aiProfiles, matchTypes,
                 this::startMatch, this::showMainMenu, this::showUpgrades));
     }
 
@@ -105,10 +126,11 @@ public class DopoSoccerGUI extends Application {
             primaryStage.setHeight(config.resolution().height());
             dopoSoccer.startMatch(new DopoSoccer.MatchRequest(
                     DopoSoccer.PlayerModeKind.valueOf(config.playerMode()),
-                    DopoSoccer.MatchKind.valueOf(config.type().name()),
+                    config.matchType(),
                     config.firstCountry(),
                     config.secondCountry(),
-                    config.goalLimit(), config.durationSeconds(), config.aiProfile()));
+                    config.goalLimit(), config.durationSeconds(), config.aiProfile(),
+                    config.parameters()));
             openMatchView();
         } catch (Exception exception) {
             showError("No se pudo iniciar el partido", exception.getMessage());

@@ -3,6 +3,7 @@ package tests;
 import domain.factory.CountryFactory;
 import domain.model.ai.AIProfile;
 import domain.model.entity.PlayerStatusEffect;
+import domain.model.entity.ProjectilePower;
 import domain.model.game.Game;
 import domain.model.game.GoalGame;
 import domain.model.game.MatchType;
@@ -44,7 +45,8 @@ class GamePersistenceTest {
         game.firstPlayer().applyKnockback(240, -300, 0.3);
         game.ball().setPosition(321, 240);
         game.ball().setVelocity(120, -30);
-        game.ball().startPowerShot(game.firstPlayer().country().power(), game.firstPlayer());
+        game.ball().startPowerShot(
+                (ProjectilePower) game.firstPlayer().country().power(), game.firstPlayer());
         game.ball().markPowerEffectApplied();
 
         persistence.save(game, AIProfile.OFFENSIVE, false);

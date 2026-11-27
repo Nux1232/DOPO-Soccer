@@ -1,6 +1,7 @@
 package domain.model.persistence;
 
 import domain.model.exception.DopoSoccerException;
+import domain.model.game.MatchType;
 
 import java.io.IOException;
 import java.io.InvalidClassException;
@@ -97,7 +98,9 @@ public final class MatchSaveStore implements MatchSaveRepository {
                 || type == MatchSaveData.PlayerState.class
                 || type == MatchSaveData.BallState.class
                 || type == PlayerProfile.class
+                || type == MatchType.class
                 || type == String.class
+                || type == java.util.TreeMap.class
                 || type == Enum.class
                 || type.isEnum()) {
             return ObjectInputFilter.Status.ALLOWED;

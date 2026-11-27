@@ -6,9 +6,7 @@ import domain.model.entity.service.PlayerStatusService;
 /**
  * Representa a un jugador durante un partido de DOPOSoccer.
  */
-public abstract class Player {
-
-    public abstract PlayerSide side();
+public class Player {
 
     /** Radio del jugador en píxeles. */
     public static final double RADIUS = 25.0;
@@ -27,6 +25,7 @@ public abstract class Player {
     public static final double KICK_ANIMATION_SECONDS = 0.22;
 
     private final Country country;
+    private final PlayerSide side;
     private final PlayerStats stats = new PlayerStats();
     private int goals;
     private double health;
@@ -45,12 +44,26 @@ public abstract class Player {
     private PlayerStatusEffect statusEffect = PlayerStatusEffect.NONE;
     private double statusEffectTimer;
 
-    protected Player(Country country, double x) {
-        if (country == null) throw new DopoSoccerException("El país del jugador es obligatorio.");
+    /**
+     * Crea un jugador asociado a un lado del campo.
+     *
+     * @param country selección representada
+     * @param x posición horizontal inicial
+     * @param side lado lógico del campo
+     */
+    public Player(Country country, double x, PlayerSide side) {
+        if (country == null || side == null) {
+            throw new DopoSoccerException("El país y el lado del jugador son obligatorios.");
+        }
         this.country = country;
+        this.side = side;
         this.x = x;
         this.health = maxHealth();
+        setFacingDirection(side == PlayerSide.LEFT ? 1 : -1);
     }
+
+    /** @return lado lógico del jugador */
+    public final PlayerSide side() { return side; }
 
     public Country country() {
         return country;

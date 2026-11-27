@@ -8,6 +8,8 @@ import domain.model.game.PlayerMode;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Instantánea serializable y versionada con todo el estado necesario para reanudar un partido.
@@ -23,6 +25,7 @@ public record MatchSaveData(
         int durationSeconds,
         double remainingSeconds,
         boolean suddenDeath,
+        Map<String, String> matchParameters,
         double kickoffDelaySeconds,
         int winner,
         boolean finished,
@@ -35,7 +38,7 @@ public record MatchSaveData(
     private static final long serialVersionUID = 1L;
 
     /** Versión actual del formato de serialización de partidas. */
-    public static final int CURRENT_VERSION = 1;
+    public static final int CURRENT_VERSION = 3;
 
     /** Valida la integridad mínima de los campos serializados del partido. */
     public MatchSaveData {
@@ -45,6 +48,12 @@ public record MatchSaveData(
                 || aiProfile == null || firstPlayer == null || secondPlayer == null || ball == null) {
             throw new IllegalArgumentException("Estado de partido guardado inválido.");
         }
+        matchParameters = matchParameters == null ? Map.of() : new TreeMap<>(matchParameters);
+    }
+
+    @Override
+    public Map<String, String> matchParameters() {
+        return Map.copyOf(matchParameters);
     }
 
     /** Estado serializable de un jugador dentro de una partida guardada. */

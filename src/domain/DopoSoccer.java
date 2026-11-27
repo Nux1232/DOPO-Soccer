@@ -6,6 +6,7 @@ import domain.model.entity.CountryCatalog;
 import domain.model.entity.Player;
 import domain.model.entity.Ball;
 import domain.model.entity.Power;
+import domain.model.entity.ProjectilePower;
 import domain.factory.MatchFactory;
 import domain.model.ai.FootballAI;
 import domain.model.ai.AIProfile;
@@ -13,9 +14,11 @@ import domain.model.persistence.PlayerProfile;
 import domain.model.persistence.MatchPersistenceService;
 import domain.model.persistence.PlayerProfileService;
 import domain.model.game.MatchRewardService;
+import domain.model.game.MatchCompletionService;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Fachada pública del dominio DOPO-SOCCER.
@@ -28,8 +31,7 @@ public final class DopoSoccer {
     private final PlayerProfileService profileService;
     private final MatchFactory matchFactory;
     private final MatchPersistenceService matchPersistenceService;
-    private final MatchRewardService rewardService;
-    private boolean rewardsApplied;
+    private final MatchCompletionService completionService;
     private AIProfile aiProfile = AIProfile.EXPERT;
 
     /** Construye la fachada con las implementaciones predeterminadas. */
@@ -69,7 +71,7 @@ public final class DopoSoccer {
         this.profileService = profileService;
         this.matchPersistenceService = matchPersistenceService;
         this.ai = ai;
-        this.rewardService = rewardService;
+        this.completionService = new MatchCompletionService(rewardService, profileService);
     }
 
 
@@ -83,15 +85,43 @@ public final class DopoSoccer {
     /** Resumen inmutable de un perfil de IA disponible en el dominio. */
     public record AIProfileSummary(String id, String displayName) { }
 
+    /** Metadatos de una modalidad disponible para la interfaz de selección. */
+    public record MatchTypeSummary(
+            String id, String displayName, List<MatchParameterSummary> parameters) { }
+
+    /** Campo de configuración que una modalidad presenta al usuario. */
+    public record MatchParameterSummary(
+            String id, String label, String defaultValue, int minimum, int maximum, int multiplier) { }
+
     /** Resumen inmutable de la progresión persistente de un jugador. */
     public record PlayerProfileSummary(int speed, int kick, int jump, int survival, int points, int nextUpgradeCost) { }
 
     /** Contrato público para iniciar un partido, sin exponer entidades. */
-    public record MatchRequest(PlayerModeKind playerMode, MatchKind matchType,
-            String firstCountry, String secondCountry, int goalLimit, int durationSeconds, String aiProfile) {
+    public record MatchRequest(PlayerModeKind playerMode, String matchType,
+            String firstCountry, String secondCountry, int goalLimit, int durationSeconds, String aiProfile,
+            Map<String, String> parameters) {
+        public MatchRequest(PlayerModeKind mode, String type, String first, String second,
+                int goals, int seconds, String profile) {
+            this(mode, type, first, second, goals, seconds, profile, Map.of());
+        }
+
+        public MatchRequest(PlayerModeKind mode, MatchKind type, String first, String second,
+                int goals, int seconds, String profile) {
+            this(mode, type == null ? null : type.name(), first, second, goals, seconds, profile, Map.of());
+        }
+
         public MatchRequest(PlayerModeKind mode, MatchKind type, String first, String second,
                 int goals, int seconds) {
-            this(mode, type, first, second, goals, seconds, "EXPERT");
+            this(mode, type == null ? null : type.name(), first, second, goals, seconds, "EXPERT", Map.of());
+        }
+
+        public MatchRequest(PlayerModeKind mode, String type, String first, String second,
+                int goals, int seconds) {
+            this(mode, type, first, second, goals, seconds, "EXPERT", Map.of());
+        }
+
+        public MatchRequest {
+            parameters = parameters == null ? Map.of() : Map.copyOf(parameters);
         }
 
     }
@@ -129,6 +159,18 @@ public final class DopoSoccer {
                 .toList();
     }
 
+    /** @return modalidades registradas en la fábrica inyectada */
+    public List<MatchTypeSummary> availableMatchTypes() {
+        return matchFactory.availableMatchTypes().stream()
+                .map(type -> new MatchTypeSummary(
+                        type.type().id(), type.displayName(),
+                        type.parameters().stream().map(parameter -> new MatchParameterSummary(
+                                parameter.id(), parameter.label(), parameter.defaultValue(),
+                                parameter.minimum(), parameter.maximum(), parameter.multiplier()))
+                                .toList()))
+                .toList();
+    }
+
     /**
      * Inicia un nuevo partido validando la solicitud y cargando los perfiles persistentes
      * de los jugadores humanos.
@@ -138,7 +180,7 @@ public final class DopoSoccer {
      */
     public void startMatch(MatchRequest request) throws DopoSoccerException {
         currentMatch = matchFactory.createMatch(toMatchParameters(request));
-        rewardsApplied = false;
+        completionService.reset();
         aiProfile = request.aiProfile() == null ? AIProfile.EXPERT : AIProfile.valueOf(request.aiProfile());
         profileService.loadInto("player1", currentMatch.firstPlayer());
         if (currentMatch.playerMode() == domain.model.game.PlayerMode.PLAYER_VS_PLAYER) {
@@ -154,12 +196,13 @@ public final class DopoSoccer {
         try {
             return new MatchFactory.MatchParameters(
                     domain.model.game.PlayerMode.valueOf(request.playerMode().name()),
-                    domain.model.game.MatchType.valueOf(request.matchType().name()),
+                    domain.model.game.MatchType.of(request.matchType()),
                     request.firstCountry(),
                     request.secondCountry(),
                     request.goalLimit(),
                     request.durationSeconds(),
-                    AIProfile.valueOf(request.aiProfile() == null ? "EXPERT" : request.aiProfile()));
+                    AIProfile.valueOf(request.aiProfile() == null ? "EXPERT" : request.aiProfile()),
+                    request.parameters());
         } catch (IllegalArgumentException exception) {
             throw new DopoSoccerException("La modalidad o el perfil seleccionado no existe.");
         }
@@ -183,7 +226,7 @@ public final class DopoSoccer {
                 ? toActions(ai.decide(aiProfile, currentMatch.secondPlayer(), currentMatch.firstPlayer(), currentMatch.ball(), currentMatch.secondPlayer().goals(), currentMatch.firstPlayer().goals()))
                 : second;
         currentMatch.update(toInput(first), toInput(effectiveSecond), deltaSeconds);
-        if (!wasFinished && currentMatch.isFinished()) { awardMatchPoints(); saveProfiles(); }
+        if (!wasFinished && currentMatch.isFinished()) completionService.complete(currentMatch);
     }
 
     /**
@@ -197,8 +240,7 @@ public final class DopoSoccer {
         if (!currentMatch.isFinished()) {
             currentMatch.endMatchNow();
         }
-        awardMatchPoints();
-        saveProfiles();
+        completionService.complete(currentMatch);
     }
 
     private PlayerActions toActions(domain.model.game.PlayerInput input) {
@@ -251,16 +293,10 @@ public final class DopoSoccer {
         return new domain.model.game.PlayerInput(actions.left(), actions.right(), actions.jump(), actions.kick(), actions.power());
     }
 
-    private void awardMatchPoints() {
-        if (rewardsApplied) return;
-        rewardService.award(currentMatch);
-        rewardsApplied = true;
-    }
-
     /** Guarda el estado completo del partido activo en la ruta por defecto. */
     public void saveMatch() {
         requireMatch();
-        matchPersistenceService.save(currentMatch, aiProfile, rewardsApplied);
+        matchPersistenceService.save(currentMatch, aiProfile, completionService.rewardsApplied());
         saveProfiles();
     }
 
@@ -272,7 +308,8 @@ public final class DopoSoccer {
      */
     public void saveMatch(java.nio.file.Path file) {
         requireMatch();
-        new MatchPersistenceService(file, matchFactory).save(currentMatch, aiProfile, rewardsApplied);
+        new MatchPersistenceService(file, matchFactory)
+                .save(currentMatch, aiProfile, completionService.rewardsApplied());
         saveProfiles();
     }
 
@@ -281,7 +318,7 @@ public final class DopoSoccer {
         MatchPersistenceService.LoadedMatch loaded = matchPersistenceService.load();
         currentMatch = loaded.game();
         aiProfile = loaded.aiProfile();
-        rewardsApplied = loaded.rewardsApplied();
+        completionService.restoreRewardsApplied(loaded.rewardsApplied());
     }
 
     /**
@@ -294,7 +331,7 @@ public final class DopoSoccer {
         MatchPersistenceService.LoadedMatch loaded = new MatchPersistenceService(file, matchFactory).load();
         currentMatch = loaded.game();
         aiProfile = loaded.aiProfile();
-        rewardsApplied = loaded.rewardsApplied();
+        completionService.restoreRewardsApplied(loaded.rewardsApplied());
     }
 
 
@@ -309,7 +346,7 @@ public final class DopoSoccer {
         Player first = currentMatch.firstPlayer();
         Player second = currentMatch.secondPlayer();
         Ball ball = currentMatch.ball();
-        Power shot = ball.activePowerShot();
+        ProjectilePower shot = ball.activePowerShot();
         return new MatchSnapshot(Game.WIDTH, Game.HEIGHT, Game.GROUND_Y, Game.GOAL_TOP, Game.GOAL_DEPTH,
                 currentMatch.modeDescription(), currentMatch.isFinished(), currentMatch.winner(),
                 playerSnapshot(first), playerSnapshot(second),

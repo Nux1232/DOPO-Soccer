@@ -6,7 +6,7 @@ import domain.model.exception.DopoSoccerException;
  * Tiro de poder configurable basado en proyectil con daño escalado por la estadística
  * {@code kick}, estado temporal y retroceso físico.
  */
-public final class ImpactPower implements Power {
+public final class ImpactPower implements ProjectilePower {
     private final String id;
     private final String visualAsset;
     private final String visualColor;

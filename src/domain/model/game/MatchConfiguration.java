@@ -4,6 +4,8 @@ import domain.model.exception.DopoSoccerException;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Objeto de valor serializable que describe las reglas y el progreso de un partido.
@@ -19,7 +21,8 @@ public record MatchConfiguration(
         int goalLimit,
         int durationSeconds,
         double remainingSeconds,
-        boolean suddenDeath) implements Serializable {
+        boolean suddenDeath,
+        Map<String, String> parameters) implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -29,5 +32,16 @@ public record MatchConfiguration(
         if (type == null || goalLimit <= 0 || durationSeconds <= 0 || remainingSeconds < 0) {
             throw new DopoSoccerException("La configuración del partido es inválida.");
         }
+        parameters = parameters == null ? Map.of() : new TreeMap<>(parameters);
+    }
+
+    public MatchConfiguration(
+            MatchType type, int goalLimit, int durationSeconds, double remainingSeconds, boolean suddenDeath) {
+        this(type, goalLimit, durationSeconds, remainingSeconds, suddenDeath, Map.of());
+    }
+
+    @Override
+    public Map<String, String> parameters() {
+        return Map.copyOf(parameters);
     }
 }

@@ -1,10 +1,10 @@
 package presentation.model;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /** Configuración de partido gestionada por la interfaz, independiente de las clases del dominio. */
 public final class MatchSetup {
-    /** Modalidades de finalización seleccionables en la interfaz. */
-    public enum Type { GOALS, TIME }
-
     /** Resoluciones predefinidas disponibles para la ventana del partido. */
     public enum Resolution {
         /** Resolución pequeña (800 × 450). */
@@ -24,13 +24,14 @@ public final class MatchSetup {
     }
 
     private final String playerMode;
-    private Type type = Type.GOALS;
+    private String matchType = "goals";
     private int goalLimit = 10;
     private int durationSeconds = 240;
     private String firstCountry = "south-korea";
     private String secondCountry = "cameroon";
     private String aiProfile = "EXPERT";
     private Resolution resolution = Resolution.MEDIUM;
+    private final Map<String, String> parameters = new HashMap<>();
 
     /**
      * Crea una configuración inicial para el modo de jugadores indicado.
@@ -40,10 +41,22 @@ public final class MatchSetup {
     public MatchSetup(String playerMode) { this.playerMode = playerMode; }
     /** @return modo de participación configurado */
     public String playerMode() { return playerMode; }
-    /** @return modalidad de partido seleccionada */
-    public Type type() { return type; }
-    /** @param value nueva modalidad de partido */
-    public void type(Type value) { if (value != null) type = value; }
+    /** @return identificador de la modalidad seleccionada */
+    public String matchType() { return matchType; }
+    /** @param value identificador de la modalidad */
+    public void matchType(String value) {
+        if (value != null && !value.isBlank()) matchType = value;
+    }
+    /** @return valor del parámetro o el predeterminado indicado */
+    public String parameter(String id, String defaultValue) {
+        return parameters.getOrDefault(id, defaultValue);
+    }
+    /** @param id identificador del parámetro @param value valor textual introducido */
+    public void setParameter(String id, String value) {
+        if (id != null && !id.isBlank() && value != null) parameters.put(id, value);
+    }
+    /** @return copia inmutable de los parámetros configurados */
+    public Map<String, String> parameters() { return Map.copyOf(parameters); }
     /** @return límite de goles configurado */
     public int goalLimit() { return goalLimit; }
     /** @param value nuevo límite de goles (si es positivo) */
