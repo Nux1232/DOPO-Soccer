@@ -1,8 +1,10 @@
 package domain.model.physics;
 
 import domain.model.entity.Ball;
+import domain.model.entity.BallShot;
 import domain.model.entity.Player;
 import domain.model.entity.Power;
+import domain.model.entity.PowerActivationContext;
 import domain.model.entity.PowerState;
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
@@ -36,13 +38,18 @@ public class PhysicsEngine implements PhysicsSimulation {
     private final PowerShotImpactHandler powerShotImpactHandler;
 
     /**
-     * Crea el mundo de Dyn4j con límites estáticos y cuerpos dinámicos.
+     * Crea un motor físico con la configuración y reglas estándar del partido.
      */
     public PhysicsEngine() {
         this(PhysicsConfig.standard(), new PlayerInputHandler(), GoalDetector.standardField(),
                 new PowerShotImpactHandler());
     }
 
+    /**
+     * Crea un motor físico con parámetros de simulación personalizados.
+     *
+     * @param config configuración física del campo y de la patada
+     */
     public PhysicsEngine(PhysicsConfig config) {
         this(config, new PlayerInputHandler(), GoalDetector.standardField(),
                 new PowerShotImpactHandler());
@@ -51,6 +58,10 @@ public class PhysicsEngine implements PhysicsSimulation {
     /**
      * Crea un motor cuyas reglas de control, gol e impacto pueden sustituirse
      * sin alterar la integración física de Dyn4j.
+     *
+     * @param inputHandler manejador de entradas del jugador
+     * @param goalDetector regla de detección de goles
+     * @param powerShotImpactHandler manejador de impactos de tiros especiales
      */
     public PhysicsEngine(
             PlayerInputHandler inputHandler,
@@ -59,6 +70,15 @@ public class PhysicsEngine implements PhysicsSimulation {
         this(PhysicsConfig.standard(), inputHandler, goalDetector, powerShotImpactHandler);
     }
 
+    /**
+     * Crea un motor físico completo con configuración y colaboradores explícitos.
+     *
+     * @param config configuración física
+     * @param inputHandler manejador de entradas
+     * @param goalDetector detector de goles
+     * @param powerShotImpactHandler manejador de impactos especiales
+     * @throws DopoSoccerException si alguna dependencia es nula
+     */
     public PhysicsEngine(PhysicsConfig config, PlayerInputHandler inputHandler,
             GoalDetector goalDetector, PowerShotImpactHandler powerShotImpactHandler) {
         if (config == null || inputHandler == null || goalDetector == null || powerShotImpactHandler == null) {
@@ -83,7 +103,14 @@ public class PhysicsEngine implements PhysicsSimulation {
     }
 
     /**
-     * Avanza la simulación física un cuadro usando Dyn4j.
+     * Avanza la simulación física un cuadro usando Dyn4j, procesa el disparo de poder
+     * al tocar el balón, verifica impactos especiales y detecta goles.
+     *
+     * @param game partido activo
+     * @param firstInput controles del primer jugador
+     * @param secondInput controles del segundo jugador
+     * @param deltaSeconds tiempo transcurrido en segundos
+     * @throws DopoSoccerException si ocurre un error de validación en el dominio
      */
     @Override
     public void update(
@@ -104,8 +131,8 @@ public class PhysicsEngine implements PhysicsSimulation {
         first.tick(dt);
         second.tick(dt);
         ball.tickPowerShot(dt);
-        ballBody.getFixture(0).setRestitution(
-                ball.activePowerShot() == null ? 0.72 : ball.activePowerShot().restitution());
+        BallShot activeShot = ball.activePowerShot();
+        ballBody.getFixture(0).setRestitution(activeShot == null ? 0.72 : activeShot.restitution());
 
         // 1. Aplicar entradas de control a los jugadores
         inputHandler.apply(first, firstInput, kickoffLocked);
@@ -123,6 +150,11 @@ public class PhysicsEngine implements PhysicsSimulation {
         syncBodyToPlayer(firstPlayerBody, first, kickoffLocked);
         syncBodyToPlayer(secondPlayerBody, second, kickoffLocked);
         syncBodyToBall(ballBody, ball);
+
+        if (!kickoffLocked) {
+            triggerPowerOnTouch(first, second, ball);
+            triggerPowerOnTouch(second, first, ball);
+        }
         powerShotImpactHandler.apply(ball, first, second);
 
         // 5. Verificar si se anotó un gol
@@ -130,7 +162,59 @@ public class PhysicsEngine implements PhysicsSimulation {
     }
 
     /**
+     * Consume el aura y lanza el tiro especial cuando el jugador toca el balón,
+     * independientemente de que haya pulsado la tecla de patada.
+     *
+     * @param player jugador cuyo cuerpo está en contacto con el balón
+     * @param ball balón con el que ha entrado en contacto
+     */
+    private void triggerPowerOnTouch(Player player, Player opponent, Ball ball) {
+        if (player.power() != PowerState.AURA || player.stunned()
+                || ball.activePowerShot() != null) {
+            return;
+        }
+        double dist = Math.hypot(ball.x() - player.x(), ball.y() - player.y());
+        if (dist > Player.RADIUS + Ball.RADIUS + 2.0) {
+            return;
+        }
+        int dir = Math.abs(ball.x() - player.x()) > 1e-6
+                ? (ball.x() > player.x() ? 1 : -1)
+                : player.facingDirection();
+        activatePower(player, opponent, ball, dir);
+    }
+
+    /**
+     * Consume el aura y delega la activación en el comportamiento propio del poder.
+     *
+     * @param player jugador que activa el poder
+     * @param opponent rival del jugador
+     * @param ball balón sobre el que se ejecuta el tiro
+     * @param dir dirección horizontal del disparo ({@code -1} izquierda, {@code 1} derecha)
+     */
+    private void activatePower(Player player, Player opponent, Ball ball, int dir) {
+        Power power = player.country().power();
+        if (player.consumePower()) {
+            player.setFacingDirection(dir);
+            PowerActivationContext context = new PowerActivationContext(player, opponent, dir);
+            power.activateInMatch(context, ball,
+                    shot -> launchShot(player, ball, dir, shot));
+        }
+    }
+
+    private void launchShot(Player player, Ball ball, int direction, BallShot shot) {
+        ball.startPowerShot(shot, player);
+        ball.setVelocity(direction * shot.horizontalSpeed(), shot.verticalSpeed());
+        ballBody.getFixture(0).setRestitution(shot.restitution());
+        syncBallToBody(ball, ballBody);
+    }
+
+    /**
      * Sobrecarga compatible con las pruebas unitarias para patear únicamente el balón.
+     *
+     * @param player jugador que patea
+     * @param ball balón del partido
+     * @param direction dirección horizontal de la patada
+     * @throws DopoSoccerException si ocurre un error de validación
      */
     public void kick(Player player, Ball ball, int direction) throws DopoSoccerException {
         kick(player, null, ball, direction);
@@ -138,10 +222,16 @@ public class PhysicsEngine implements PhysicsSimulation {
 
     /**
      * Ejecuta la patada de un jugador.
-     * - Si está aturdido o en espera (cooldown), no hace nada.
-     * - Si el balón está al alcance, impulsa únicamente el balón (Tabla 4, Anexo 2).
-     * - Si no toca el balón pero el rival está al alcance del pie, le aplica
-     *   10 * multiplicadorKick de daño.
+     * Si el jugador está aturdido o en espera (cooldown), no hace nada.
+     * Si el balón está al alcance, impulsa únicamente el balón (Tabla 4, Anexo 2).
+     * Si no toca el balón pero el rival está al alcance del pie, le aplica
+     * {@code 10 * multiplicadorKick} de daño.
+     *
+     * @param kicker jugador que ejecuta la patada
+     * @param opponent jugador contrario (puede ser {@code null} en pruebas aisladas)
+     * @param ball balón del partido
+     * @param direction dirección horizontal de la patada
+     * @throws DopoSoccerException si ocurre un error de validación
      */
     @Override
     public void kick(Player kicker, Player opponent, Ball ball, int direction) throws DopoSoccerException {
@@ -155,21 +245,17 @@ public class PhysicsEngine implements PhysicsSimulation {
         double distBall = Math.hypot(dxBall, dyBall);
 
         if (distBall <= kickRange) {
-            Power powerShot = kicker.power() == PowerState.AURA
-                    ? kicker.country() : null;
-            if (powerShot != null && kicker.consumePower()) {
-                ball.startPowerShot(powerShot, kicker);
-                ball.setVelocity(
-                        dir * powerShot.horizontalSpeed(),
-                        powerShot.verticalSpeed());
-                ballBody.getFixture(0).setRestitution(
-                        powerShot.restitution());
+            if (kicker.power() == PowerState.AURA) {
+                activatePower(kicker, opponent, ball, dir);
             } else {
+                if (ball.activePowerShot() != null) {
+                    return;
+                }
                 ball.clearPowerShot();
                 ball.setVelocity(dir * config.kickSpeedX(), config.kickSpeedY());
                 ballBody.getFixture(0).setRestitution(0.72);
+                syncBallToBody(ball, ballBody);
             }
-            syncBallToBody(ball, ballBody);
             kicker.startKickCooldown(config.kickCooldownSeconds());
             kicker.startKickAnimation();
             return;
@@ -330,7 +416,8 @@ public class PhysicsEngine implements PhysicsSimulation {
         if (y + Ball.RADIUS >= Game.GROUND_Y - 0.5) {
             y = Game.GROUND_Y - Ball.RADIUS;
             if (vy > 0) {
-                double bounceMultiplier = ball.activePowerShot() == null ? 0.72 : ball.activePowerShot().restitution();
+                BallShot activeShot = ball.activePowerShot();
+                double bounceMultiplier = activeShot == null ? 0.72 : activeShot.restitution();
                 vy = -vy * bounceMultiplier;
             }
             // Si el rebote vertical ya es muy pequeño, detener el rebote en el suelo

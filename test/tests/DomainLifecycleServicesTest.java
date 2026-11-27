@@ -5,6 +5,7 @@ import domain.model.entity.PlayerStatusEffect;
 import domain.model.entity.service.PlayerPowerService;
 import domain.model.entity.service.PlayerProgression;
 import domain.model.entity.service.PlayerStatusService;
+import domain.model.exception.DopoSoccerException;
 import domain.model.game.lifecycle.GoalLimitRule;
 import domain.model.game.lifecycle.MatchClock;
 import domain.model.game.lifecycle.MatchLifecycle;
@@ -58,6 +59,6 @@ class DomainLifecycleServicesTest {
     @Test void progressionIncreasesLevelAndDoublesUpgradeCost() {
         assertEquals(2, PlayerProgression.nextLevel(1, 10));
         assertEquals(1000, PlayerProgression.nextCost(500));
-        assertThrows(IllegalStateException.class, () -> PlayerProgression.nextLevel(10, 10));
+        assertThrows(DopoSoccerException.class, () -> PlayerProgression.nextLevel(10, 10));
     }
 }

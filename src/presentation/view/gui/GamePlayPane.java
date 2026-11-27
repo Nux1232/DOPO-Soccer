@@ -4,7 +4,9 @@ import presentation.input.KeyboardInputHandler;
 import presentation.model.GameSnapshot;
 import presentation.model.PlayerControls;
 import presentation.view.render.GameRenderer;
+import presentation.view.render.PowerShotRendererRegistry;
 import presentation.view.effects.PlayerEffectsLayer;
+import presentation.view.effects.PlayerEffectCatalog;
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -18,33 +20,117 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.control.Alert;
 
-/** Gameplay view. It receives immutable presentation snapshots and sends controls upward. */
+/**
+ * Vista de juego durante un partido activo.
+ * Recibe instantáneas inmutables de presentación y envía los controles del teclado hacia arriba.
+ */
 public final class GamePlayPane extends BorderPane {
     private final KeyboardInputHandler keyboard = new KeyboardInputHandler();
 
+    /** Contrato funcional para avanzar la simulación física y lógica del partido. */
     @FunctionalInterface
     public interface GameUpdateHandler {
+        /**
+         * Actualiza el partido un paso de tiempo.
+         *
+         * @param first controles del jugador izquierdo
+         * @param second controles del jugador derecho
+         * @param deltaSeconds segundos transcurridos desde el cuadro anterior
+         * @return instantánea actualizada del partido
+         * @throws Exception si ocurre un error en el dominio durante la actualización
+         */
         GameSnapshot update(PlayerControls first, PlayerControls second, double deltaSeconds) throws Exception;
+    }
+
+    /** Contrato funcional para finalizar anticipadamente el partido activo. */
+    @FunctionalInterface
+    public interface GameFinishHandler {
+        /**
+         * Da por terminado el partido activo y devuelve su instantánea final.
+         *
+         * @return instantánea del partido finalizado
+         * @throws Exception si no se puede finalizar el partido
+         */
+        GameSnapshot finish() throws Exception;
     }
 
     private final GameUpdateHandler onUpdate;
     private final Runnable onBack;
     private final Runnable onSave;
-    private final GameRenderer renderer = new GameRenderer();
-    private final PlayerEffectsLayer effectsLayer = new PlayerEffectsLayer();
+    private final GameFinishHandler onFinish;
+    private final GameRenderer renderer;
+    private final PlayerEffectsLayer effectsLayer;
     private final Canvas canvas = new Canvas();
     private AnimationTimer animationTimer;
     private boolean paused = false;
     private GameSnapshot snapshot;
     private long previousFrame;
 
-    public GamePlayPane(GameSnapshot initialSnapshot, GameUpdateHandler onUpdate, Runnable onBack) { this(initialSnapshot, onUpdate, onBack, () -> {}); }
+    /**
+     * Crea la vista de juego sin acciones de guardado ni finalización anticipada personalizadas.
+     *
+     * @param initialSnapshot instantánea inicial del partido
+     * @param onUpdate manejador de actualización por cuadro
+     * @param onBack acción para volver al menú principal
+     */
+    public GamePlayPane(GameSnapshot initialSnapshot, GameUpdateHandler onUpdate, Runnable onBack) {
+        this(initialSnapshot, onUpdate, onBack, () -> {}, () -> initialSnapshot);
+    }
 
+    /**
+     * Crea la vista de juego con soporte de guardado.
+     *
+     * @param initialSnapshot instantánea inicial del partido
+     * @param onUpdate manejador de actualización por cuadro
+     * @param onBack acción para volver al menú principal
+     * @param onSave acción para guardar el partido
+     */
     public GamePlayPane(GameSnapshot initialSnapshot, GameUpdateHandler onUpdate, Runnable onBack, Runnable onSave) {
+        this(initialSnapshot, onUpdate, onBack, onSave, () -> initialSnapshot);
+    }
+
+    /**
+     * Crea la vista de juego completa con guardado y finalización anticipada.
+     *
+     * @param initialSnapshot instantánea inicial del partido
+     * @param onUpdate manejador de actualización por cuadro
+     * @param onBack acción para volver al menú principal
+     * @param onSave acción para guardar el partido
+     * @param onFinish manejador para terminar el partido manualmente
+     */
+    public GamePlayPane(GameSnapshot initialSnapshot, GameUpdateHandler onUpdate,
+            Runnable onBack, Runnable onSave, GameFinishHandler onFinish) {
+        this(initialSnapshot, onUpdate, onBack, onSave, onFinish, PlayerEffectCatalog.defaults());
+    }
+
+    /**
+     * Crea la vista de juego con un catálogo de efectos visuales extensible.
+     *
+     * @param initialSnapshot instantánea inicial del partido
+     * @param onUpdate manejador de actualización por cuadro
+     * @param onBack acción para volver al menú
+     * @param onSave acción para guardar
+     * @param onFinish manejador de finalización manual
+     * @param effectCatalog catálogo de animaciones de estados
+     */
+    public GamePlayPane(GameSnapshot initialSnapshot, GameUpdateHandler onUpdate,
+            Runnable onBack, Runnable onSave, GameFinishHandler onFinish,
+            PlayerEffectCatalog effectCatalog) {
+        this(initialSnapshot, onUpdate, onBack, onSave, onFinish,
+                effectCatalog, new PowerShotRendererRegistry());
+    }
+
+    /** Crea la vista con catálogos configurables de animaciones de jugador y tiros. */
+    public GamePlayPane(GameSnapshot initialSnapshot, GameUpdateHandler onUpdate,
+            Runnable onBack, Runnable onSave, GameFinishHandler onFinish,
+            PlayerEffectCatalog effectCatalog, PowerShotRendererRegistry shotRenderers) {
         this.snapshot = initialSnapshot;
         this.onUpdate = onUpdate;
         this.onBack = onBack;
         this.onSave = onSave;
+        this.onFinish = onFinish;
+        this.renderer = new GameRenderer(shotRenderers);
+        this.effectsLayer = new PlayerEffectsLayer(effectCatalog);
         setStyle("-fx-background-color: #edf3f5;");
 
         StackPane gameArea = new StackPane(canvas, effectsLayer);
@@ -56,6 +142,7 @@ public final class GamePlayPane extends BorderPane {
         javafx.scene.control.Button pauseButton = new javafx.scene.control.Button("Pausar");
         pauseButton.setFocusTraversable(false);
         pauseButton.setOnAction(event -> {
+            if (snapshot != null && snapshot.finished()) return;
             if (!paused) {
                 animationTimer.stop();
                 paused = true;
@@ -73,6 +160,9 @@ public final class GamePlayPane extends BorderPane {
         javafx.scene.control.Button saveButton = new javafx.scene.control.Button("Guardar partida");
         saveButton.setFocusTraversable(false);
         saveButton.setOnAction(event -> onSave.run());
+        javafx.scene.control.Button finishButton = new javafx.scene.control.Button("Terminar partido");
+        finishButton.setFocusTraversable(false);
+        finishButton.setOnAction(event -> finishMatchManually());
         javafx.scene.control.Button menuButton = new javafx.scene.control.Button("Volver al menú");
         menuButton.setFocusTraversable(false);
         menuButton.setOnAction(event -> { stop(); onBack.run(); });
@@ -80,8 +170,8 @@ public final class GamePlayPane extends BorderPane {
                 new javafx.scene.control.Label("J1: A / D mover · W saltar · F patear · G poder"),
                 new javafx.scene.control.Label(snapshot.machineOpponent()
                         ? "J2: MÁQUINA" : "J2: ← / → mover · ↑ saltar · Enter patear · Shift poder"),
-                pauseButton, saveButton, menuButton);
-        footer.setAlignment(Pos.CENTER); footer.setSpacing(22); footer.setPadding(new Insets(12));
+                pauseButton, saveButton, finishButton, menuButton);
+        footer.setAlignment(Pos.CENTER); footer.setSpacing(18); footer.setPadding(new Insets(12));
         footer.setStyle("-fx-background-color: #edf3f5; -fx-font-size: 12px;");
         setBottom(footer);
         setFocusTraversable(true);
@@ -98,23 +188,15 @@ public final class GamePlayPane extends BorderPane {
                 try {
                     snapshot = onUpdate.update(firstPlayerControls(), secondPlayerControls(), delta);
                     if (snapshot.finished()) {
-                        animationTimer.stop(); paused = true; keyboard.clear();
-                        String result = snapshot.winner() == 0 ? "¡EMPATE!" :
-                                "¡GANA " + (snapshot.winner() == 1 ? snapshot.firstPlayer().countryName() : snapshot.secondPlayer().countryName()) + "!";
-                        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                        alert.setTitle("DOPO-SOCCER"); alert.setHeaderText("¡PARTIDO TERMINADO!");
-                        String pointsMessage = snapshot.winner() == 1 ? "\nPuntos: J1 +100 · J2 +25"
-                                : snapshot.winner() == 2 ? "\nPuntos: J1 +25 · J2 +100" : "\nPuntos: +25 para ambos";
-                        alert.setContentText(result + "\n\nMarcador final: "
-                                + snapshot.firstPlayer().goals() + " - " + snapshot.secondPlayer().goals()
-                                + pointsMessage);
-                        alert.show(); render(); return;
+                        stop();
+                        render();
+                        showFinishedAlert();
+                        return;
                     }
                 } catch (Exception exception) {
                     stop();
-                    Alert alert = new Alert(Alert.AlertType.ERROR);
-                    alert.setTitle("Error del juego"); alert.setHeaderText("No se pudo actualizar el partido");
-                    alert.setContentText(exception.getMessage()); alert.show(); return;
+                    showErrorAlert("No se pudo actualizar el partido", exception.getMessage());
+                    return;
                 }
                 render();
             }
@@ -122,6 +204,41 @@ public final class GamePlayPane extends BorderPane {
         animationTimer.start();
     }
 
+    private void finishMatchManually() {
+        if (snapshot != null && snapshot.finished()) return;
+        try {
+            stop();
+            snapshot = onFinish.finish();
+            render();
+            showFinishedAlert();
+        } catch (Exception exception) {
+            showErrorAlert("No se pudo terminar el partido", exception.getMessage());
+        }
+    }
+
+    private void showFinishedAlert() {
+        String result = snapshot.winner() == 0 ? "¡EMPATE!" :
+                "¡GANA " + (snapshot.winner() == 1 ? snapshot.firstPlayer().countryName() : snapshot.secondPlayer().countryName()) + "!";
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("DOPO-SOCCER");
+        alert.setHeaderText("¡PARTIDO TERMINADO!");
+        String pointsMessage = snapshot.winner() == 1 ? "\nPuntos: J1 +100 · J2 +25"
+                : snapshot.winner() == 2 ? "\nPuntos: J1 +25 · J2 +100" : "\nPuntos: +25 para ambos";
+        alert.setContentText(result + "\n\nMarcador final: "
+                + snapshot.firstPlayer().goals() + " - " + snapshot.secondPlayer().goals()
+                + pointsMessage);
+        alert.show();
+    }
+
+    private void showErrorAlert(String header, String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Error del juego");
+        alert.setHeaderText(header);
+        alert.setContentText(message);
+        alert.show();
+    }
+
+    /** Detiene el ciclo de animación y limpia el estado del teclado. */
     public void stop() { animationTimer.stop(); paused = true; keyboard.clear(); }
 
     private void render() {
