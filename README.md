@@ -41,9 +41,9 @@ Los tipos de poder se conectan mediante `PowerFactoryRegistry`. Para incorporar 
 
 Un poder que quiera asociar un tiro al balón puede implementar `BallShot` y sobrescribir `Power.activateInMatch(...)` para invocar el lanzador proporcionado. El contrato del tiro define velocidades, duración, restitución e impacto; el motor aplica la física común sin comprobar si el poder es `ProjectilePower`. Los poderes heredados pueden seguir implementando `ProjectilePower`, que adapta su activación a este contrato.
 
-Los poderes no proyectiles pueden guardar estado por jugador mediante `Player.setPowerExtensionState` y personalizar `Power.saveState` / `Power.restoreState` cuando requieran otro formato. El formato del snapshot es la versión 6 e incluye esos datos; los guardados anteriores se rechazan sin migración automática.
+Los poderes no proyectiles pueden guardar estado por jugador mediante `Player.setPowerExtensionState` y personalizar `Power.saveState` / `Power.restoreState` cuando requieran otro formato. El formato del snapshot es la versión 6 e incluye esos datos; los guardados de versión 5 se migran y los anteriores se rechazan.
 
-La presentación de efectos temporales se amplía con `PlayerEffectCatalog`: se pueden registrar rutas y geometría para nuevos identificadores de estado, y una subclase de `DopoSoccerGUI` puede suministrar su catálogo sobrescribiendo `createPlayerEffectCatalog()`. La conversión de snapshots y controles entre dominio y presentación está centralizada en `GameSnapshotMapper`.
+La presentación de efectos temporales se amplía con `PlayerEffectCatalog`: se pueden registrar rutas y geometría para nuevos identificadores de estado, y una subclase de `DopoSoccerGUI` puede suministrar su catálogo sobrescribiendo `createPlayerEffectCatalog()`. `MatchRequestMapper` convierte la selección de la interfaz al contrato de inicio de la fachada, y `GameSnapshotMapper` centraliza la conversión de snapshots y controles.
 
 La selección de países está encapsulada en `PlayerCountryCard`, mientras `CharacterSelectionPane` coordina la pantalla. `GameRenderer` delega el marcador y las barras de estado en `MatchHudRenderer`, separando la cancha de la interfaz de partido.
 
@@ -55,7 +55,7 @@ Para cambiar la representación del balón de un poder, registra una estrategia 
 
 Los parámetros numéricos se normalizan a su unidad configurada antes de entregar la solicitud al creador. Las modalidades personalizadas solo requieren definir y validar su propio esquema; no hay que modificar una estructura común al agregar campos de configuración. La persistencia delega además en `Power.restoreActiveShot(...)` la reconstrucción de un tiro; cada tipo de poder decide si puede restaurar ese estado, sin que el servicio dependa directamente de `ProjectilePower`.
 
-El snapshot de partidas está en la versión 6, que persiste el contrato `MatchConfiguration` de cada modalidad con valores tipados y el estado extensible de poderes. Los guardados anteriores se rechazan, sin migración automática.
+El snapshot de partidas está en la versión 6, que persiste el contrato `MatchConfiguration` de cada modalidad con valores tipados y el estado extensible de poderes. Los guardados de la versión 5 migran automáticamente su configuración textual y se reescriben en la versión actual una vez restaurados correctamente; las versiones anteriores se rechazan.
 
 Los snapshots de fachada y presentación agrupan la posición y geometría del balón junto con los datos del tiro activo en `BallSnapshot`. Así, añadir propiedades visuales del balón o del tiro no requiere ampliar cada vez el contrato raíz de partida; los accesores planos existentes se conservan para compatibilidad.
 
@@ -63,4 +63,4 @@ Los snapshots de fachada y presentación agrupan la posición y geometría del b
 
 La finalización y entrega idempotente de recompensas se coordina en `MatchCompletionService`; `DopoSoccer` conserva la fachada pública y delega ese flujo en el servicio.
 
-Los servicios de persistencia dependen de `MatchSaveRepository` y `PlayerProfileRepository`, no de sus almacenes de archivo concretos. `MatchSaveStore` sigue siendo el almacenamiento predeterminado de partidas: guarda `MatchSaveData` con `ObjectOutputStream` en un `.ser` versionado y lo valida al cargar. La versión 6 incorpora identificadores extensibles, configuración específica tipada por modalidad y estado adicional de poderes; los archivos de versiones anteriores se rechazan y no se migran automáticamente. Los perfiles conservan el formato `.properties` actual; se pueden sustituir sus almacenes sin modificar la lógica del servicio.
+Los servicios de persistencia dependen de `MatchSaveRepository` y `PlayerProfileRepository`, no de sus almacenes de archivo concretos. `MatchSaveStore` sigue siendo el almacenamiento predeterminado de partidas: guarda `MatchSaveData` con `ObjectOutputStream` en un `.ser` versionado y lo valida al cargar. La versión 6 incorpora identificadores extensibles, configuración específica tipada por modalidad y estado adicional de poderes. La versión 5 se migra durante la restauración y se reescribe en el formato actual; las versiones anteriores se rechazan. Los perfiles conservan el formato `.properties` actual; se pueden sustituir sus almacenes sin modificar la lógica del servicio.

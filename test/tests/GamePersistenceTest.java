@@ -6,6 +6,7 @@ import domain.model.entity.PlayerStatusEffect;
 import domain.model.entity.ProjectilePower;
 import domain.model.game.Game;
 import domain.model.game.GoalGame;
+import domain.model.game.MatchConfiguration;
 import domain.model.game.MatchType;
 import domain.model.game.MatchValue;
 import domain.model.game.PlayerInput;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -102,5 +104,56 @@ class GamePersistenceTest {
         assertEquals(new MatchValue.IntegerNumber(120), savedConfiguration.parameters().get("durationSeconds"));
         assertEquals(new MatchValue.DecimalNumber(115), savedConfiguration.state().get("remainingSeconds"));
         assertEquals(new MatchValue.Flag(false), savedConfiguration.state().get("suddenDeath"));
+    }
+
+    @Test
+    void migratesVersionFiveStringConfigurationAndRewritesTheSave() {
+        Path file = temporaryDirectory.resolve("legacy-match.ser");
+        MatchPersistenceService persistence = new MatchPersistenceService(file);
+        TimeGame game = new TimeGame(
+                PlayerMode.PLAYER_VS_PLAYER,
+                CountryFactory.create("KR"),
+                CountryFactory.create("NG"),
+                new PhysicsEngine(),
+                120);
+        game.update(PlayerInput.NONE, PlayerInput.NONE, 5);
+        persistence.save(game, AIProfile.EXPERT, false);
+
+        MatchSaveStore store = new MatchSaveStore(file);
+        var current = store.load();
+        MatchConfiguration legacyConfiguration = new MatchConfiguration(
+                MatchType.TIME,
+                legacyValues(Map.of("durationSeconds", "120")),
+                legacyValues(Map.of("remainingSeconds", "115.0", "suddenDeath", "false")));
+        store.save(new domain.model.persistence.MatchSaveData(
+                domain.model.persistence.MatchSaveData.LEGACY_VERSION,
+                current.playerMode(),
+                current.firstCountryId(),
+                current.secondCountryId(),
+                current.aiProfile(),
+                legacyConfiguration,
+                current.kickoffDelaySeconds(),
+                current.winner(),
+                current.finished(),
+                current.rewardsApplied(),
+                current.firstPlayer(),
+                current.secondPlayer(),
+                current.ball()));
+
+        TimeGame restored = assertInstanceOf(TimeGame.class, persistence.load().game());
+
+        assertEquals(115, restored.remainingSeconds());
+        assertEquals(domain.model.persistence.MatchSaveData.CURRENT_VERSION, store.load().version());
+        assertEquals(new MatchValue.IntegerNumber(120),
+                store.load().matchConfiguration().parameters().get("durationSeconds"));
+        assertEquals(new MatchValue.DecimalNumber(115),
+                store.load().matchConfiguration().state().get("remainingSeconds"));
+        assertEquals(new MatchValue.Flag(false),
+                store.load().matchConfiguration().state().get("suddenDeath"));
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static Map<String, MatchValue> legacyValues(Map<String, String> values) {
+        return (Map) values;
     }
 }

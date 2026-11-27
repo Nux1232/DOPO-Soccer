@@ -12,6 +12,7 @@ import javafx.stage.Stage;
 import presentation.model.AIProfileOption;
 import presentation.model.CountryOption;
 import presentation.model.GameSnapshotMapper;
+import presentation.model.MatchRequestMapper;
 import presentation.model.MatchSetup;
 import presentation.model.MatchTypeOption;
 import presentation.view.effects.PlayerEffectCatalog;
@@ -135,12 +136,7 @@ public class DopoSoccerGUI extends Application {
             primaryStage.setMinHeight(Math.min(WINDOW_HEIGHT, config.resolution().height()));
             primaryStage.setWidth(config.resolution().width());
             primaryStage.setHeight(config.resolution().height());
-            dopoSoccer.startMatch(new DopoSoccer.MatchRequest(
-                    DopoSoccer.PlayerModeKind.valueOf(config.playerMode()),
-                    config.matchType(),
-                    config.firstCountry(),
-                    config.secondCountry(),
-                    config.aiProfile(), config.parameters()));
+            dopoSoccer.startMatch(MatchRequestMapper.toDomain(config));
             openMatchView();
         } catch (Exception exception) {
             showError("No se pudo iniciar el partido", exception.getMessage());

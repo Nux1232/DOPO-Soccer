@@ -151,6 +151,60 @@ public final class MatchTypeRegistry {
         }
     }
 
+    domain.model.game.MatchConfiguration migrateLegacyConfiguration(
+            domain.model.game.MatchConfiguration configuration) {
+        if (configuration == null) {
+            throw new DopoSoccerException("La configuración heredada es obligatoria.");
+        }
+        Registration registration = find(configuration.type());
+        if (registration == null) {
+            throw new DopoSoccerException(
+                    "No hay un esquema registrado para migrar la modalidad guardada.");
+        }
+        Map<?, ?> legacyValues = configuration.parameters();
+        Map<String, MatchValue> migrated = new HashMap<>();
+        for (MatchFactory.MatchParameter definition : registration.parameters()) {
+            Object stored = legacyValues.get(definition.id());
+            if (stored instanceof String text) {
+                migrated.put(definition.id(), legacyParameterValue(definition, text));
+            } else if (stored instanceof MatchValue matchValue) {
+                migrated.put(definition.id(), matchValue);
+            } else {
+                throw new DopoSoccerException(
+                        "Falta un parámetro heredado válido: " + definition.id() + ".");
+            }
+        }
+        if (legacyValues.size() != migrated.size()) {
+            throw new DopoSoccerException("La configuración heredada contiene parámetros desconocidos.");
+        }
+        return configuration.withMigratedParameters(migrated);
+    }
+
+    private MatchValue legacyParameterValue(MatchFactory.MatchParameter definition, String value) {
+        try {
+            return switch (definition.type()) {
+                case NUMBER -> {
+                    int normalized = Integer.parseInt(value);
+                    if (normalized % definition.multiplier() != 0) {
+                        throw new DopoSoccerException(
+                                "El parámetro heredado " + definition.id() + " no es válido.");
+                    }
+                    definition.validate(Integer.toString(normalized / definition.multiplier()));
+                    yield new MatchValue.IntegerNumber(normalized);
+                }
+                case TEXT -> new MatchValue.Text(definition.validate(value));
+                case SELECT -> new MatchValue.Text(definition.validate(value));
+                case BOOLEAN -> {
+                    String validated = definition.validate(value);
+                    yield new MatchValue.Flag(Boolean.parseBoolean(validated));
+                }
+            };
+        } catch (NumberFormatException exception) {
+            throw new DopoSoccerException(
+                    "El parámetro heredado " + definition.id() + " no es válido.", exception);
+        }
+    }
+
     /** Metadatos de una modalidad registrados en el catálogo. */
     record Registration(
             MatchType type,

@@ -84,7 +84,8 @@ public final class MatchSaveStore implements MatchSaveRepository {
             if (!(value instanceof MatchSaveData data)) {
                 throw new InvalidClassException("El archivo no contiene un estado de partido válido.");
             }
-            if (data.version() != MatchSaveData.CURRENT_VERSION) {
+            if (data.version() != MatchSaveData.CURRENT_VERSION
+                    && data.version() != MatchSaveData.LEGACY_VERSION) {
                 throw new InvalidClassException("El archivo de partida tiene una versión incompatible.");
             }
             return data;

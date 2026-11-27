@@ -3,6 +3,8 @@ package tests;
 import domain.DopoSoccer;
 import domain.model.game.Game;
 import presentation.model.GameSnapshotMapper;
+import presentation.model.MatchRequestMapper;
+import presentation.model.MatchSetup;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -59,5 +61,21 @@ class DopoSoccerFacadeTest {
 
         facade.reset();
         assertEquals(DopoSoccer.MatchStatus.NO_MATCH, facade.matchStatus());
+    }
+
+    @Test
+    void presentationMatchSetupStartsTheConfiguredTimeMatchThroughTheFacade() {
+        MatchSetup setup = new MatchSetup("PLAYER_VS_PLAYER");
+        setup.matchType("time");
+        setup.firstCountry("usa");
+        setup.secondCountry("cameroon");
+        setup.aiProfile("EXPERT");
+        setup.setParameter("durationSeconds", "2");
+
+        DopoSoccer facade = new DopoSoccer();
+        facade.startMatch(MatchRequestMapper.toDomain(setup));
+
+        assertEquals(DopoSoccer.MatchStatus.ACTIVE, facade.matchStatus());
+        assertTrue(facade.snapshot().modeDescription().contains("02:00"));
     }
 }

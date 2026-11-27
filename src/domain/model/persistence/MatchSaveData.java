@@ -34,15 +34,25 @@ public record MatchSaveData(
 
     /** Versión actual del formato de serialización de partidas. */
     public static final int CURRENT_VERSION = 6;
+    /** Última versión anterior que todavía puede migrarse automáticamente. */
+    public static final int LEGACY_VERSION = 5;
 
     /** Valida la integridad mínima de los campos serializados del partido. */
     public MatchSaveData {
-        if (version != CURRENT_VERSION
+        if ((version != CURRENT_VERSION && version != LEGACY_VERSION)
                 || playerMode == null || matchConfiguration == null
                 || firstCountryId == null || secondCountryId == null
                 || aiProfile == null || firstPlayer == null || secondPlayer == null || ball == null) {
             throw new IllegalArgumentException("Estado de partido guardado inválido.");
         }
+    }
+
+    /** Copia esta instantánea en el formato actual y con la configuración migrada. */
+    public MatchSaveData migratedToCurrentVersion(MatchConfiguration migratedConfiguration) {
+        return new MatchSaveData(
+                CURRENT_VERSION, playerMode, firstCountryId, secondCountryId, aiProfile,
+                migratedConfiguration, kickoffDelaySeconds, winner, finished, rewardsApplied,
+                firstPlayer, secondPlayer, ball);
     }
 
     /** Estado serializable de un jugador dentro de una partida guardada. */

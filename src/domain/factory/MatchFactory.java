@@ -204,6 +204,12 @@ public final class MatchFactory implements MatchRestorer {
         matchTypes.validateConfiguration(configuration);
     }
 
+    @Override
+    public domain.model.game.MatchConfiguration migrateLegacyConfiguration(
+            domain.model.game.MatchConfiguration configuration) {
+        return matchTypes.migrateLegacyConfiguration(configuration);
+    }
+
     /**
      * Crea un partido con la fábrica predeterminada.
      *

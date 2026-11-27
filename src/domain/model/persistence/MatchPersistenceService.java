@@ -109,13 +109,16 @@ public final class MatchPersistenceService {
      */
     public LoadedMatch load() {
         MatchSaveData data = store.load();
+        MatchConfiguration configuration = data.version() == MatchSaveData.LEGACY_VERSION
+                ? matchRestorer.migrateLegacyConfiguration(data.matchConfiguration())
+                : data.matchConfiguration();
         Game game = matchRestorer.restore(
                 new MatchRestoreRequest(
                         data.playerMode(),
                         data.firstCountryId(),
                         data.secondCountryId(),
                         data.aiProfile(),
-                        data.matchConfiguration()));
+                        configuration));
         if (game == null) {
             throw new DopoSoccerException("El restaurador devolvió un partido nulo.");
         }
@@ -136,9 +139,12 @@ public final class MatchPersistenceService {
                 throw new DopoSoccerException("El tiro guardado no coincide con su propietario.");
             }
         }
-        game.restoreMatchConfiguration(data.matchConfiguration());
+        game.restoreMatchConfiguration(configuration);
         if (data.finished()) {
             game.restoreLifecycle(data.winner());
+        }
+        if (data.version() == MatchSaveData.LEGACY_VERSION) {
+            store.save(data.migratedToCurrentVersion(game.matchConfiguration()));
         }
         return new LoadedMatch(game, data.aiProfile(), data.rewardsApplied());
     }
