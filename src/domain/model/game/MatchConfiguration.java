@@ -10,38 +10,50 @@ import java.util.TreeMap;
 /**
  * Objeto de valor serializable que describe las reglas y el progreso de un partido.
  *
- * @param type modalidad de finalización (goles o tiempo)
- * @param goalLimit límite de goles configurado
- * @param durationSeconds duración reglamentaria total en segundos
- * @param remainingSeconds tiempo restante en segundos
- * @param suddenDeath indica si el partido se encuentra en muerte súbita
+ * @param type identificador de la modalidad
+ * @param parameters configuración serializable de esa modalidad
+ * @param state estado de ejecución serializable propio de la modalidad
  */
 public record MatchConfiguration(
         MatchType type,
-        int goalLimit,
-        int durationSeconds,
-        double remainingSeconds,
-        boolean suddenDeath,
-        Map<String, String> parameters) implements Serializable {
+        Map<String, MatchValue> parameters,
+        Map<String, MatchValue> state) implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
-    /** Valida que los parámetros de configuración del partido sean consistentes. */
+    /** Valida la identidad y los datos de configuración de la modalidad. */
     public MatchConfiguration {
-        if (type == null || goalLimit <= 0 || durationSeconds <= 0 || remainingSeconds < 0) {
+        if (type == null) {
             throw new DopoSoccerException("La configuración del partido es inválida.");
         }
-        parameters = parameters == null ? Map.of() : new TreeMap<>(parameters);
+        Map<String, MatchValue> configuredParameters = parameters == null ? Map.of() : parameters;
+        if (configuredParameters.entrySet().stream()
+                .anyMatch(entry -> entry.getKey() == null || entry.getKey().isBlank()
+                        || entry.getValue() == null)) {
+            throw new DopoSoccerException("Los parámetros de modalidad guardados son inválidos.");
+        }
+        parameters = new TreeMap<>(configuredParameters);
+        Map<String, MatchValue> configuredState = state == null ? Map.of() : state;
+        if (configuredState.entrySet().stream()
+                .anyMatch(entry -> entry.getKey() == null || entry.getKey().isBlank()
+                        || entry.getValue() == null)) {
+            throw new DopoSoccerException("El estado de modalidad guardado es inválido.");
+        }
+        state = new TreeMap<>(configuredState);
     }
 
-    public MatchConfiguration(
-            MatchType type, int goalLimit, int durationSeconds, double remainingSeconds, boolean suddenDeath) {
-        this(type, goalLimit, durationSeconds, remainingSeconds, suddenDeath, Map.of());
+    public MatchConfiguration(MatchType type, Map<String, MatchValue> parameters) {
+        this(type, parameters, Map.of());
     }
 
     @Override
-    public Map<String, String> parameters() {
+    public Map<String, MatchValue> parameters() {
         return Map.copyOf(parameters);
+    }
+
+    @Override
+    public Map<String, MatchValue> state() {
+        return Map.copyOf(state);
     }
 }

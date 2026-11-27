@@ -3,30 +3,33 @@ package domain.factory;
 import domain.DopoSoccer.MatchRequest;
 import domain.model.ai.AIProfile;
 import domain.model.entity.Country;
+import domain.model.entity.CountryCatalog;
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
 import domain.model.game.GoalGame;
 import domain.model.game.MatchType;
+import domain.model.game.MatchRestoreRequest;
+import domain.model.game.MatchRestorer;
 import domain.model.game.PlayerMode;
 import domain.model.game.TimeGame;
 import domain.model.physics.PhysicsEngine;
 import domain.model.physics.PhysicsSimulation;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
 /** Construye partidos válidos y permite registrar constructores para modalidades adicionales. */
-public final class MatchFactory {
-    private final Map<MatchType, RegisteredMatch> creators = new HashMap<>();
+public final class MatchFactory implements MatchRestorer {
+    private final MatchTypeRegistry matchTypes = new MatchTypeRegistry();
     private final Supplier<? extends PhysicsSimulation> physicsProvider;
+    private final CountryCatalog countryCatalog;
 
     /** Crea una fábrica con la implementación de física predeterminada. */
     public MatchFactory() {
-        this(PhysicsEngine::new);
+        this(CountryCatalog.defaultCatalog(), PhysicsEngine::new);
     }
 
     /**
@@ -35,9 +38,27 @@ public final class MatchFactory {
      * @param physicsProvider proveedor de implementaciones de física
      */
     public MatchFactory(Supplier<? extends PhysicsSimulation> physicsProvider) {
+        this(CountryCatalog.defaultCatalog(), physicsProvider);
+    }
+
+    /**
+     * Crea una fábrica con catálogo de países y proveedor de física inyectados.
+     *
+     * @param countryCatalog catálogo de países de esta aplicación
+     * @param physicsProvider proveedor de implementaciones de física
+     */
+    public MatchFactory(
+            CountryCatalog countryCatalog, Supplier<? extends PhysicsSimulation> physicsProvider) {
+        this.countryCatalog = Objects.requireNonNull(countryCatalog,
+                "El catálogo de países es obligatorio.");
         this.physicsProvider = Objects.requireNonNull(physicsProvider,
                 "El proveedor de física es obligatorio.");
         registerBuiltInCreators();
+    }
+
+    /** @return países disponibles en el catálogo configurado */
+    public List<Country> availableCountries() {
+        return countryCatalog.countries();
     }
 
     /**
@@ -47,7 +68,7 @@ public final class MatchFactory {
      * @param creator constructor de la modalidad
      */
     public void register(MatchType type, MatchCreator creator) {
-        RegisteredMatch current = type == null ? null : creators.get(type);
+        MatchTypeRegistry.Registration current = matchTypes.find(type);
         register(type,
                 current == null ? (type == null ? null : type.id()) : current.displayName(),
                 current == null ? List.of() : current.parameters(),
@@ -79,45 +100,41 @@ public final class MatchFactory {
      */
     public void register(
             MatchType type, String displayName, List<MatchParameter> parameters, MatchCreator creator) {
-        if (type == null || creator == null) {
-            throw new DopoSoccerException("La modalidad y su constructor son obligatorios.");
-        }
-        if (displayName == null || displayName.isBlank() || parameters == null) {
-            throw new DopoSoccerException("El nombre y la configuración de modalidad son obligatorios.");
-        }
-        if (parameters.stream().anyMatch(parameter -> parameter == null)
-                || parameters.stream().map(MatchParameter::id).distinct().count() != parameters.size()) {
-            throw new DopoSoccerException("Los parámetros deben ser válidos y tener identificadores únicos.");
-        }
-        creators.put(type, new RegisteredMatch(displayName.trim(), List.copyOf(parameters), creator));
+        matchTypes.register(type, displayName, parameters, creator);
     }
 
     /** @return modalidades registradas y sus metadatos para construir la selección de juego */
     public List<MatchTypeDescriptor> availableMatchTypes() {
-        return creators.entrySet().stream()
-                .map(entry -> new MatchTypeDescriptor(
-                        entry.getKey(), entry.getValue().displayName(), entry.getValue().parameters()))
-                .sorted((first, second) -> first.type().id().compareTo(second.type().id()))
-                .toList();
+        return matchTypes.descriptors();
     }
 
     private void registerBuiltInCreators() {
         register(MatchType.GOALS, "Por goles", List.of(
                 new MatchParameter("goalLimit", "Límite de goles", "10", 1, 99, 1)),
                 (request, first, second, physics) -> {
-            if (request.goalLimit() <= 0) {
+            int goalLimit = requiredInteger(request, "goalLimit");
+            if (goalLimit <= 0) {
                 throw new DopoSoccerException(DopoSoccerException.INVALID_GOAL_LIMIT);
             }
-            return new GoalGame(request.playerMode(), first, second, physics, request.goalLimit());
+            return new GoalGame(request.playerMode(), first, second, physics, goalLimit);
         });
         register(MatchType.TIME, "Por tiempo", List.of(
                 new MatchParameter("durationSeconds", "Duración (minutos)", "4", 1, 60, 60)),
                 (request, first, second, physics) -> {
-            if (request.durationSeconds() <= 0) {
+            int durationSeconds = requiredInteger(request, "durationSeconds");
+            if (durationSeconds <= 0) {
                 throw new DopoSoccerException(DopoSoccerException.INVALID_MATCH_DURATION);
             }
-            return new TimeGame(request.playerMode(), first, second, physics, request.durationSeconds());
+            return new TimeGame(request.playerMode(), first, second, physics, durationSeconds);
         });
+    }
+
+    private static int requiredInteger(MatchParameters request, String id) {
+        try {
+            return Integer.parseInt(request.parameters().get(id));
+        } catch (NumberFormatException | NullPointerException exception) {
+            throw new DopoSoccerException("Falta un parámetro numérico válido: " + id + ".", exception);
+        }
     }
 
     /**
@@ -129,14 +146,19 @@ public final class MatchFactory {
      */
     public Game createMatch(MatchParameters request) throws DopoSoccerException {
         validate(request);
-        RegisteredMatch registration = creators.get(request.matchType());
+        MatchTypeRegistry.Registration registration = matchTypes.find(request.matchType());
         if (registration == null) {
             throw new DopoSoccerException("No hay un constructor registrado para la modalidad solicitada.");
         }
 
-        Country first = CountryFactory.create(request.firstCountryId());
-        Country second = CountryFactory.create(request.secondCountryId());
-        request = normalizeParameters(request, registration.parameters());
+        Country first = CountryFactory.create(request.firstCountryId(), countryCatalog);
+        Country second = CountryFactory.create(request.secondCountryId(), countryCatalog);
+        request = matchTypes.normalize(request, registration);
+        return instantiate(request, registration, first, second);
+    }
+
+    private Game instantiate(
+            MatchParameters request, MatchTypeRegistry.Registration registration, Country first, Country second) {
         PhysicsSimulation physics = physicsProvider.get();
         if (physics == null) {
             throw new DopoSoccerException("El proveedor de física devolvió null.");
@@ -148,48 +170,38 @@ public final class MatchFactory {
         return game;
     }
 
-    private static MatchParameters normalizeParameters(
-            MatchParameters request, List<MatchParameter> definitions) {
-        Map<String, String> values = new HashMap<>(request.parameters());
-        HashSet<String> knownIds = new HashSet<>();
-        for (MatchParameter definition : definitions) {
-            knownIds.add(definition.id());
-            String value = values.get(definition.id());
-            if (value == null) {
-                if ("goalLimit".equals(definition.id())) {
-                    value = Integer.toString(request.goalLimit());
-                } else if ("durationSeconds".equals(definition.id())) {
-                    value = Integer.toString(request.durationSeconds() / definition.multiplier());
-                } else {
-                    value = definition.defaultValue();
-                }
-            }
-            try {
-                int parsed = Integer.parseInt(value);
-                if (parsed < definition.minimum() || parsed > definition.maximum()) {
-                    throw new DopoSoccerException("El parámetro " + definition.label()
-                            + " está fuera del rango permitido.");
-                }
-                int configured = Math.multiplyExact(parsed, definition.multiplier());
-                if ("goalLimit".equals(definition.id())) request = new MatchParameters(
-                        request.playerMode(), request.matchType(), request.firstCountryId(),
-                        request.secondCountryId(), configured, request.durationSeconds(),
-                        request.aiProfile(), values);
-                if ("durationSeconds".equals(definition.id())) request = new MatchParameters(
-                        request.playerMode(), request.matchType(), request.firstCountryId(),
-                        request.secondCountryId(), request.goalLimit(), configured,
-                        request.aiProfile(), values);
-                values.put(definition.id(), value);
-            } catch (NumberFormatException | ArithmeticException exception) {
-                throw new DopoSoccerException("El parámetro " + definition.label() + " debe ser numérico.", exception);
-            }
+    /**
+     * Reconstruye la instancia base de una modalidad guardada.
+     * El servicio de persistencia restaura después el estado dinámico del partido.
+     */
+    @Override
+    public Game restore(MatchRestoreRequest request) {
+        if (request == null || request.configuration() == null) {
+            throw new DopoSoccerException("Los datos para restaurar el partido son obligatorios.");
         }
-        if (!knownIds.containsAll(values.keySet())) {
-            throw new DopoSoccerException("La solicitud contiene parámetros no reconocidos para la modalidad.");
+        MatchType type = request.configuration().type();
+        MatchTypeRegistry.Registration registration = matchTypes.find(type);
+        if (registration == null) {
+            throw new DopoSoccerException("No hay un constructor registrado para la modalidad solicitada.");
         }
-        return new MatchParameters(request.playerMode(), request.matchType(), request.firstCountryId(),
-                request.secondCountryId(), request.goalLimit(), request.durationSeconds(),
-                request.aiProfile(), values);
+        MatchParameters base = new MatchParameters(
+                request.playerMode(),
+                type,
+                request.firstCountryId(),
+                request.secondCountryId(),
+                request.aiProfile(),
+                Map.of());
+        MatchParameters restored = matchTypes.restoreParameters(
+                base, registration, request.configuration());
+        validate(restored);
+        Country first = CountryFactory.create(restored.firstCountryId(), countryCatalog);
+        Country second = CountryFactory.create(restored.secondCountryId(), countryCatalog);
+        return instantiate(restored, registration, first, second);
+    }
+
+    @Override
+    public void validateConfiguration(domain.model.game.MatchConfiguration configuration) {
+        matchTypes.validateConfiguration(configuration);
     }
 
     /**
@@ -240,7 +252,8 @@ public final class MatchFactory {
             throw new DopoSoccerException(DopoSoccerException.NULL_CONFIG);
         }
         return new MatchFactory().createMatch(new MatchParameters(
-                mode, matchType, firstCountry, secondCountry, goalLimit, durationSeconds, aiProfile));
+                mode, matchType, firstCountry, secondCountry, aiProfile,
+                legacyParameters(matchType, goalLimit, durationSeconds)));
     }
 
     private static MatchParameters parametersFrom(MatchRequest request) throws DopoSoccerException {
@@ -254,8 +267,6 @@ public final class MatchFactory {
                     MatchType.of(request.matchType()),
                     request.firstCountry(),
                     request.secondCountry(),
-                    request.goalLimit(),
-                    request.durationSeconds(),
                     AIProfile.valueOf(request.aiProfile() == null ? "EXPERT" : request.aiProfile()),
                     request.parameters());
         } catch (IllegalArgumentException exception) {
@@ -300,41 +311,125 @@ public final class MatchFactory {
     /** Metadatos de modalidad expuestos para construir menús sin listas codificadas. */
     public record MatchTypeDescriptor(MatchType type, String displayName, List<MatchParameter> parameters) { }
 
-    /** Definición de campo numérico presentado al configurar una modalidad. */
+    /** Tipo de control generado para un parámetro de modalidad. */
+    public enum ParameterType { NUMBER, TEXT, BOOLEAN, SELECT }
+
+    /** Definición declarativa de un campo presentado al configurar una modalidad. */
     public record MatchParameter(String id, String label, String defaultValue,
-            int minimum, int maximum, int multiplier) {
+            int minimum, int maximum, int multiplier, ParameterType type, List<String> options) {
+        public MatchParameter(String id, String label, String defaultValue,
+                int minimum, int maximum, int multiplier) {
+            this(id, label, defaultValue, minimum, maximum, multiplier, ParameterType.NUMBER, List.of());
+        }
+
         public MatchParameter {
             if (id == null || id.isBlank() || label == null || label.isBlank()
-                    || defaultValue == null || minimum < 0 || maximum < minimum || multiplier <= 0) {
+                    || defaultValue == null || type == null || options == null
+                    || minimum < 0 || maximum < minimum || multiplier <= 0) {
                 throw new DopoSoccerException("La definición de parámetro de modalidad es inválida.");
             }
-            try {
-                int parsedDefault = Integer.parseInt(defaultValue);
-                if (parsedDefault < minimum || parsedDefault > maximum) {
-                    throw new DopoSoccerException(
-                            "El valor predeterminado del parámetro está fuera de su rango.");
+            options = List.copyOf(options);
+            switch (type) {
+                case NUMBER -> {
+                    if (!options.isEmpty()) {
+                        throw new DopoSoccerException("Un parámetro numérico no debe incluir opciones.");
+                    }
+                    try {
+                        int parsedDefault = Integer.parseInt(defaultValue);
+                        if (parsedDefault < minimum || parsedDefault > maximum) {
+                            throw new DopoSoccerException(
+                                    "El valor predeterminado del parámetro está fuera de su rango.");
+                        }
+                        Math.multiplyExact(parsedDefault, multiplier);
+                    } catch (NumberFormatException | ArithmeticException exception) {
+                        throw new DopoSoccerException(
+                                "El valor predeterminado del parámetro debe ser numérico.", exception);
+                    }
                 }
-                Math.multiplyExact(parsedDefault, multiplier);
-            } catch (NumberFormatException | ArithmeticException exception) {
-                throw new DopoSoccerException("El valor predeterminado del parámetro debe ser numérico.", exception);
+                case SELECT -> {
+                    if (options.isEmpty() || !options.contains(defaultValue)) {
+                        throw new DopoSoccerException(
+                                "Un parámetro de selección requiere opciones y un valor predeterminado válido.");
+                    }
+                }
+                case BOOLEAN -> {
+                    if (!options.isEmpty()
+                            || !("true".equalsIgnoreCase(defaultValue)
+                            || "false".equalsIgnoreCase(defaultValue))) {
+                        throw new DopoSoccerException("El valor predeterminado booleano es inválido.");
+                    }
+                }
+                case TEXT -> {
+                    if (!options.isEmpty() || defaultValue.length() < minimum
+                            || defaultValue.length() > maximum) {
+                        throw new DopoSoccerException("El texto predeterminado está fuera de su rango.");
+                    }
+                }
             }
+        }
+
+        public String validate(String value) {
+            if (value == null) {
+                throw new DopoSoccerException("Falta el parámetro " + label + ".");
+            }
+            switch (type) {
+                case NUMBER -> {
+                    try {
+                        int parsed = Integer.parseInt(value);
+                        if (parsed < minimum || parsed > maximum) {
+                            throw new DopoSoccerException("El parámetro " + label
+                                    + " está fuera del rango permitido.");
+                        }
+                        Math.multiplyExact(parsed, multiplier);
+                    } catch (NumberFormatException | ArithmeticException exception) {
+                        throw new DopoSoccerException("El parámetro " + label + " debe ser numérico.", exception);
+                    }
+                }
+                case SELECT -> {
+                    if (!options.contains(value)) {
+                        throw new DopoSoccerException("La opción seleccionada para " + label + " no existe.");
+                    }
+                }
+                case BOOLEAN -> {
+                    if (!("true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value))) {
+                        throw new DopoSoccerException("El parámetro " + label + " debe ser booleano.");
+                    }
+                    return value.toLowerCase(java.util.Locale.ROOT);
+                }
+                case TEXT -> {
+                    if (value.length() < minimum || value.length() > maximum) {
+                        throw new DopoSoccerException("El texto de " + label + " está fuera del rango permitido.");
+                    }
+                }
+            }
+            return value;
         }
     }
 
-    private record RegisteredMatch(String displayName, List<MatchParameter> parameters, MatchCreator creator) { }
-
     /** Parámetros tipados del dominio utilizados tanto al iniciar como al restaurar partidos. */
     public record MatchParameters(PlayerMode playerMode, MatchType matchType,
-            String firstCountryId, String secondCountryId, int goalLimit, int durationSeconds,
-            AIProfile aiProfile, Map<String, String> parameters) {
+            String firstCountryId, String secondCountryId, AIProfile aiProfile, Map<String, String> parameters) {
         public MatchParameters(PlayerMode playerMode, MatchType matchType, String firstCountryId,
                 String secondCountryId, int goalLimit, int durationSeconds, AIProfile aiProfile) {
-            this(playerMode, matchType, firstCountryId, secondCountryId, goalLimit, durationSeconds,
-                    aiProfile, Map.of());
+            this(playerMode, matchType, firstCountryId, secondCountryId, aiProfile,
+                    legacyParameters(matchType, goalLimit, durationSeconds));
         }
 
         public MatchParameters {
             parameters = parameters == null ? Map.of() : Map.copyOf(parameters);
         }
+    }
+
+    private static Map<String, String> legacyParameters(MatchType type, int goalLimit, int durationSeconds) {
+        Map<String, String> parameters = new HashMap<>();
+        if (MatchType.GOALS.equals(type) && goalLimit > 0) {
+            parameters.put("goalLimit", Integer.toString(goalLimit));
+        } else if (MatchType.TIME.equals(type) && durationSeconds > 0) {
+            if (durationSeconds % 60 != 0) {
+                throw new DopoSoccerException("La duración heredada debe expresarse en minutos completos.");
+            }
+            parameters.put("durationSeconds", Integer.toString(durationSeconds / 60));
+        }
+        return Map.copyOf(parameters);
     }
 }

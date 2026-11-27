@@ -14,23 +14,49 @@ package presentation.model;
  * @param firstPlayer estado visual del jugador izquierdo
  * @param secondPlayer estado visual del jugador derecho
  * @param machineOpponent indica si el segundo jugador es controlado por la máquina
- * @param ballX posición horizontal del balón
- * @param ballY posición vertical del balón
- * @param ballRadius radio del balón
- * @param activePowerShot identificador del tiro especial activo, o {@code null}
- * @param powerShotAsset recurso gráfico del tiro especial activo
- * @param powerShotColor color hexadecimal del tiro especial activo
- * @param powerShotDuration duración total del tiro especial activo
- * @param powerShotElapsed tiempo transcurrido del tiro especial activo
- * @param powerShotRenderCopies indica si el balón debe dibujarse con copias ilusorias
+ * @param ball estado del balón y su tiro especial activo
  */
 public record GameSnapshot(
         double width, double height, double groundY, double goalTop, double goalDepth,
         String modeDescription, boolean finished, int winner,
         PlayerSnapshot firstPlayer, PlayerSnapshot secondPlayer, boolean machineOpponent,
-        double ballX, double ballY, double ballRadius,
-        String activePowerShot, String powerShotAsset, String powerShotColor,
-        double powerShotDuration, double powerShotElapsed, boolean powerShotRenderCopies) {
+        BallSnapshot ball) {
+
+    public GameSnapshot(double width, double height, double groundY, double goalTop, double goalDepth,
+            String modeDescription, boolean finished, int winner,
+            PlayerSnapshot firstPlayer, PlayerSnapshot secondPlayer, boolean machineOpponent,
+            double ballX, double ballY, double ballRadius,
+            String activePowerShot, String powerShotAsset, String powerShotColor,
+            double powerShotDuration, double powerShotElapsed, boolean powerShotRenderCopies) {
+        this(width, height, groundY, goalTop, goalDepth, modeDescription, finished, winner,
+                firstPlayer, secondPlayer, machineOpponent,
+                new BallSnapshot(ballX, ballY, ballRadius, activePowerShot == null ? null
+                        : new PowerShotSnapshot(activePowerShot, powerShotAsset, powerShotColor,
+                                powerShotDuration, powerShotElapsed, powerShotRenderCopies)));
+    }
+
+    public double ballX() { return ball.x(); }
+    public double ballY() { return ball.y(); }
+    public double ballRadius() { return ball.radius(); }
+    public String activePowerShot() { return ball.powerShot() == null ? null : ball.powerShot().id(); }
+    public String powerShotAsset() { return ball.powerShot() == null ? null : ball.powerShot().asset(); }
+    public String powerShotColor() { return ball.powerShot() == null ? null : ball.powerShot().color(); }
+    public double powerShotDuration() {
+        return ball.powerShot() == null ? 0 : ball.powerShot().duration();
+    }
+    public double powerShotElapsed() {
+        return ball.powerShot() == null ? 0 : ball.powerShot().elapsed();
+    }
+    public boolean powerShotRenderCopies() {
+        return ball.powerShot() != null && ball.powerShot().renderCopies();
+    }
+
+    /** Estado del balón y los metadatos visuales de su tiro activo. */
+    public record BallSnapshot(double x, double y, double radius, PowerShotSnapshot powerShot) { }
+
+    /** Metadatos de presentación de un tiro especial. */
+    public record PowerShotSnapshot(
+            String id, String asset, String color, double duration, double elapsed, boolean renderCopies) { }
 
     /**
      * Instantánea inmutable del estado visual, estadísticas y HUD de un jugador.

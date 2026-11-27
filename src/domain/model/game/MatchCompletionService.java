@@ -1,6 +1,7 @@
 package domain.model.game;
 
 import domain.model.exception.DopoSoccerException;
+import domain.model.persistence.PlayerProfile;
 import domain.model.persistence.PlayerProfileService;
 
 /**
@@ -41,13 +42,20 @@ public final class MatchCompletionService {
             throw new DopoSoccerException("El partido debe estar finalizado para completar sus recompensas.");
         }
         if (rewardsApplied) return;
+        PlayerProfile first = withReward(game.firstPlayer().stats().profile(), rewardService.rewardFor(game, 1));
+        PlayerProfile second = withReward(game.secondPlayer().stats().profile(), rewardService.rewardFor(game, 2));
+        if (game.playerMode() == PlayerMode.PLAYER_VS_MACHINE) {
+            profileService.saveProfile("player1", first);
+        } else {
+            profileService.saveMatchProfiles(first, second);
+        }
         rewardService.award(game);
         rewardsApplied = true;
-        if (game.playerMode() == PlayerMode.PLAYER_VS_MACHINE) {
-            profileService.saveProfile("player1", game.firstPlayer());
-        } else {
-            profileService.saveMatchProfiles(game.firstPlayer(), game.secondPlayer());
-        }
+    }
+
+    private PlayerProfile withReward(PlayerProfile profile, int reward) {
+        return new PlayerProfile(profile.speed(), profile.kick(), profile.jump(), profile.survival(),
+                Math.addExact(profile.points(), reward), profile.nextUpgradeCost());
     }
 
     /** @return {@code true} si las recompensas ya se entregaron en esta sesión */

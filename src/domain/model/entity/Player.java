@@ -2,6 +2,8 @@ package domain.model.entity;
 import domain.model.exception.DopoSoccerException;
 import domain.model.entity.service.PlayerPowerService;
 import domain.model.entity.service.PlayerStatusService;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Representa a un jugador durante un partido de DOPOSoccer.
@@ -43,6 +45,7 @@ public class Player {
     private int facingDirection = 1;
     private PlayerStatusEffect statusEffect = PlayerStatusEffect.NONE;
     private double statusEffectTimer;
+    private final Map<String, String> powerExtensionState = new TreeMap<>();
 
     /**
      * Crea un jugador asociado a un lado del campo.
@@ -67,6 +70,29 @@ public class Player {
 
     public Country country() {
         return country;
+    }
+
+    /** @return copia inmutable del estado adicional definido por el poder de este jugador */
+    public Map<String, String> powerExtensionState() {
+        return Map.copyOf(powerExtensionState);
+    }
+
+    /** Guarda un valor de estado adicional asociado al poder actual. */
+    public void setPowerExtensionState(String key, String value) {
+        if (key == null || key.isBlank() || value == null) {
+            throw new DopoSoccerException("La clave y el valor del estado del poder son obligatorios.");
+        }
+        powerExtensionState.put(key, value);
+    }
+
+    /** Reemplaza el estado adicional al restaurar una partida. */
+    public void restorePowerExtensionState(Map<String, String> state) {
+        if (state == null || state.keySet().stream().anyMatch(key -> key == null || key.isBlank())
+                || state.values().stream().anyMatch(value -> value == null)) {
+            throw new DopoSoccerException("El estado adicional del poder guardado es inválido.");
+        }
+        powerExtensionState.clear();
+        powerExtensionState.putAll(state);
     }
 
     public PlayerStats stats() {

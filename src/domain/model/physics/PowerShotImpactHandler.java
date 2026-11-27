@@ -1,8 +1,8 @@
 package domain.model.physics;
 
 import domain.model.entity.Ball;
+import domain.model.entity.BallShot;
 import domain.model.entity.Player;
-import domain.model.entity.ProjectilePower;
 import domain.model.exception.DopoSoccerException;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -19,7 +19,7 @@ public final class PowerShotImpactHandler {
         void apply(Player opponent);
     }
 
-    private final Map<ProjectilePower, ImpactMotion> additionalMotions = new IdentityHashMap<>();
+    private final Map<BallShot, ImpactMotion> additionalMotions = new IdentityHashMap<>();
 
     /** Crea un manejador sin reacciones físicas adicionales registradas. */
     public PowerShotImpactHandler() { }
@@ -29,7 +29,7 @@ public final class PowerShotImpactHandler {
      *
      * @param motions mapa de poderes y sus reacciones complementarias
      */
-    public PowerShotImpactHandler(Map<ProjectilePower, ImpactMotion> motions) {
+    public PowerShotImpactHandler(Map<BallShot, ImpactMotion> motions) {
         if (motions != null) additionalMotions.putAll(motions);
     }
 
@@ -40,7 +40,7 @@ public final class PowerShotImpactHandler {
      * @param motion reacción complementaria a ejecutar tras el impacto
      * @throws DopoSoccerException si el poder o la reacción son {@code null}
      */
-    public void register(ProjectilePower shot, ImpactMotion motion) {
+    public void register(BallShot shot, ImpactMotion motion) {
         if (shot == null || motion == null) throw new DopoSoccerException("Poder y reacción requeridos");
         additionalMotions.put(shot, motion);
     }
@@ -54,7 +54,7 @@ public final class PowerShotImpactHandler {
      * @throws DopoSoccerException si ocurre un error de dominio al aplicar el daño o impacto
      */
     public void apply(Ball ball, Player first, Player second) throws DopoSoccerException {
-        ProjectilePower shot = ball.activePowerShot();
+        BallShot shot = ball.activePowerShot();
         Player owner = ball.powerShotOwner();
         if (shot == null || owner == null || ball.powerEffectApplied()) return;
         Player opponent = owner == first ? second : first;

@@ -9,6 +9,7 @@ import domain.model.exception.DopoSoccerException;
 import domain.model.physics.PhysicsEngine;
 import domain.model.physics.PhysicsSimulation;
 import domain.model.game.lifecycle.MatchLifecycle;
+import java.util.Map;
 
 /**
  * Representa un partido de DOPO-SOCCER.
@@ -239,7 +240,8 @@ public class Game {
      * @return configuración actual del partido
      */
     public MatchConfiguration matchConfiguration() {
-        return new MatchConfiguration(MatchType.GOALS, 10, 240, 0, false);
+        return new MatchConfiguration(
+                MatchType.GOALS, Map.of("goalLimit", new MatchValue.IntegerNumber(10)));
     }
 
     /**

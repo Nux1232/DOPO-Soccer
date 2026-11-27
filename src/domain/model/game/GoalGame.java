@@ -5,6 +5,9 @@ import domain.model.entity.Country;
 import domain.model.exception.DopoSoccerException;
 import domain.model.physics.PhysicsSimulation;
 import domain.model.game.lifecycle.GoalLimitRule;
+import domain.model.game.MatchValue;
+
+import java.util.Map;
 
 /**
  * Partido que termina cuando un jugador alcanza el límite de goles.
@@ -49,7 +52,17 @@ public final class GoalGame extends Game {
 
     @Override
     public MatchConfiguration matchConfiguration() {
-        return new MatchConfiguration(MatchType.GOALS, goalLimit, 240, 0, false);
+        return new MatchConfiguration(MatchType.GOALS,
+                Map.of("goalLimit", new MatchValue.IntegerNumber(goalLimit)));
+    }
+
+    @Override
+    public void restoreMatchConfiguration(MatchConfiguration configuration) {
+        if (configuration == null || !MatchType.GOALS.equals(configuration.type())
+                || !new MatchValue.IntegerNumber(goalLimit)
+                        .equals(configuration.parameters().get("goalLimit"))) {
+            throw new DopoSoccerException("La configuración guardada no corresponde a este partido.");
+        }
     }
 
     @Override

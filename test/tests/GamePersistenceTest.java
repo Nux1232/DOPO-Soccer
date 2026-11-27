@@ -7,6 +7,7 @@ import domain.model.entity.ProjectilePower;
 import domain.model.game.Game;
 import domain.model.game.GoalGame;
 import domain.model.game.MatchType;
+import domain.model.game.MatchValue;
 import domain.model.game.PlayerInput;
 import domain.model.game.PlayerMode;
 import domain.model.game.TimeGame;
@@ -57,6 +58,11 @@ class GamePersistenceTest {
 
         GoalGame restoredGoalGame = assertInstanceOf(GoalGame.class, restored);
         assertEquals(7, restoredGoalGame.goalLimit());
+        var savedGoalConfiguration = new MatchSaveStore(temporaryDirectory.resolve("match.ser"))
+                .load().matchConfiguration();
+        assertEquals(new MatchValue.IntegerNumber(7), savedGoalConfiguration.parameters().get("goalLimit"));
+        assertEquals(6, new MatchSaveStore(temporaryDirectory.resolve("match.ser"))
+                .load().version());
         assertEquals(1, restored.firstPlayer().goals());
         assertEquals(600, restored.firstPlayer().stats().points());
         assertEquals(PlayerStatusEffect.ELECTRIFIED, restored.firstPlayer().statusEffect());
@@ -90,6 +96,11 @@ class GamePersistenceTest {
         TimeGame restored = assertInstanceOf(TimeGame.class, persistence.load().game());
         assertEquals(115, restored.remainingSeconds());
         assertEquals(MatchType.TIME, new MatchSaveStore(temporaryDirectory.resolve("time-match.ser"))
-                .load().matchType());
+                .load().matchConfiguration().type());
+        var savedConfiguration = new MatchSaveStore(temporaryDirectory.resolve("time-match.ser"))
+                .load().matchConfiguration();
+        assertEquals(new MatchValue.IntegerNumber(120), savedConfiguration.parameters().get("durationSeconds"));
+        assertEquals(new MatchValue.DecimalNumber(115), savedConfiguration.state().get("remainingSeconds"));
+        assertEquals(new MatchValue.Flag(false), savedConfiguration.state().get("suddenDeath"));
     }
 }

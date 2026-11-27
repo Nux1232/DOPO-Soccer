@@ -25,8 +25,6 @@ public final class MatchSetup {
 
     private final String playerMode;
     private String matchType = "goals";
-    private int goalLimit = 10;
-    private int durationSeconds = 240;
     private String firstCountry = "south-korea";
     private String secondCountry = "cameroon";
     private String aiProfile = "EXPERT";
@@ -57,14 +55,8 @@ public final class MatchSetup {
     }
     /** @return copia inmutable de los parámetros configurados */
     public Map<String, String> parameters() { return Map.copyOf(parameters); }
-    /** @return límite de goles configurado */
-    public int goalLimit() { return goalLimit; }
-    /** @param value nuevo límite de goles (si es positivo) */
-    public void goalLimit(int value) { if (value > 0) goalLimit = value; }
-    /** @return duración del partido en segundos */
-    public int durationSeconds() { return durationSeconds; }
-    /** @param value nueva duración en segundos (si es positiva) */
-    public void durationSeconds(int value) { if (value > 0) durationSeconds = value; }
+    /** Elimina parámetros de otra modalidad antes de aplicar el esquema seleccionado. */
+    public void clearParameters() { parameters.clear(); }
     /** @return identificador del país del jugador 1 */
     public String firstCountry() { return firstCountry; }
     /** @param value nuevo país del jugador 1 */

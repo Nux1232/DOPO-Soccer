@@ -2,6 +2,7 @@ package tests;
 
 import domain.DopoSoccer;
 import domain.model.game.Game;
+import presentation.model.GameSnapshotMapper;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -44,6 +45,11 @@ class DopoSoccerFacadeTest {
         assertEquals("us.png", snapshot.firstPlayer().flagAsset());
         assertEquals("cm.png", snapshot.secondPlayer().flagAsset());
         assertFalse(snapshot.powerShotRenderCopies());
+        assertEquals(snapshot.ballX(), snapshot.ball().x());
+        assertNull(snapshot.ball().powerShot());
+        var presentationSnapshot = GameSnapshotMapper.toPresentation(snapshot);
+        assertEquals(snapshot.ballX(), presentationSnapshot.ball().x());
+        assertNull(presentationSnapshot.ball().powerShot());
 
         facade.updateMatch(
                 new DopoSoccer.PlayerActions(false, true, false, false, false),

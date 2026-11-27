@@ -55,6 +55,12 @@ public final class PlayerProfileService {
         store.save(slot, player.stats().profile());
     }
 
+    /** Guarda un perfil calculado sin modificar previamente el jugador en memoria. */
+    public void saveProfile(String slot, PlayerProfile profile) {
+        if (profile == null) throw new DopoSoccerException(DopoSoccerException.INVALID_PROFILE);
+        store.save(slot, profile);
+    }
+
     /**
      * Guarda los perfiles de ambos jugadores humanos tras un partido.
      *
@@ -64,6 +70,15 @@ public final class PlayerProfileService {
     public void saveMatchProfiles(Player first, Player second) {
         store.save("player1", first.stats().profile());
         store.save("player2", second.stats().profile());
+    }
+
+    /** Guarda dos snapshots preparados; repetir esta operación reemplaza los mismos valores. */
+    public void saveMatchProfiles(PlayerProfile first, PlayerProfile second) {
+        if (first == null || second == null) {
+            throw new DopoSoccerException(DopoSoccerException.INVALID_PROFILE);
+        }
+        store.save("player1", first);
+        store.save("player2", second);
     }
 
     /**

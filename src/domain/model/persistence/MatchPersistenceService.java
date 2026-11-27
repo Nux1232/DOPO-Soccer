@@ -1,32 +1,32 @@
 package domain.model.persistence;
 
-import domain.factory.MatchFactory;
 import domain.model.ai.AIProfile;
 import domain.model.entity.Ball;
 import domain.model.entity.Player;
 import domain.model.entity.Power;
-import domain.model.entity.ProjectilePower;
 import domain.model.entity.PowerState;
 import domain.model.entity.PlayerStatusEffect;
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
 import domain.model.game.MatchConfiguration;
+import domain.model.game.MatchRestorer;
+import domain.model.game.MatchRestoreRequest;
 
 import java.nio.file.Path;
 
 /** Coordina el guardado y restauración de instantáneas tipadas del partido con el almacén serializable. */
 public final class MatchPersistenceService {
     private final MatchSaveRepository store;
-    private final MatchFactory matchFactory;
+    private final MatchRestorer matchRestorer;
 
     /** Crea el servicio usando el archivo de guardado por defecto. */
     public MatchPersistenceService() {
-        this(new MatchSaveStore(), new MatchFactory());
+        this(new MatchSaveStore(), new domain.factory.MatchFactory());
     }
 
-    /** Crea el servicio con el repositorio de archivo predeterminado y una fábrica compartida. */
-    public MatchPersistenceService(MatchFactory matchFactory) {
-        this(new MatchSaveStore(), matchFactory);
+    /** Crea el servicio con el repositorio y restaurador predeterminados. */
+    public MatchPersistenceService(MatchRestorer matchRestorer) {
+        this(new MatchSaveStore(), matchRestorer);
     }
 
     /**
@@ -35,17 +35,17 @@ public final class MatchPersistenceService {
      * @param file ruta del archivo de partida guardada
      */
     public MatchPersistenceService(Path file) {
-        this(new MatchSaveStore(file), new MatchFactory());
+        this(new MatchSaveStore(file), new domain.factory.MatchFactory());
     }
 
     /**
      * Crea el servicio para una ruta y una fábrica configurada de modalidades.
      *
      * @param file ruta del archivo de partida guardada
-     * @param matchFactory fábrica utilizada para reconstruir el tipo concreto de partido
+     * @param matchRestorer estrategia utilizada para reconstruir el tipo concreto de partido
      */
-    public MatchPersistenceService(Path file, MatchFactory matchFactory) {
-        this(new MatchSaveStore(file), matchFactory);
+    public MatchPersistenceService(Path file, MatchRestorer matchRestorer) {
+        this(new MatchSaveStore(file), matchRestorer);
     }
 
     /**
@@ -54,20 +54,20 @@ public final class MatchPersistenceService {
      * @param store repositorio responsable de leer y escribir la partida
      */
     public MatchPersistenceService(MatchSaveRepository store) {
-        this(store, new MatchFactory());
+        this(store, new domain.factory.MatchFactory());
     }
 
     /**
-     * Crea el servicio con repositorio y fábrica inyectados.
+     * Crea el servicio con repositorio y estrategia de restauración inyectados.
      *
      * @param store repositorio serializable responsable de leer y escribir
-     * @param matchFactory fábrica usada para reconstruir los partidos cargados
+     * @param matchRestorer estrategia usada para reconstruir los partidos cargados
      */
-    public MatchPersistenceService(MatchSaveRepository store, MatchFactory matchFactory) {
+    public MatchPersistenceService(MatchSaveRepository store, MatchRestorer matchRestorer) {
         if (store == null) throw new DopoSoccerException("El repositorio de partidas es obligatorio.");
-        if (matchFactory == null) throw new DopoSoccerException("La fábrica de partidos es obligatoria.");
+        if (matchRestorer == null) throw new DopoSoccerException("El restaurador de partidos es obligatorio.");
         this.store = store;
-        this.matchFactory = matchFactory;
+        this.matchRestorer = matchRestorer;
     }
 
     /**
@@ -83,19 +83,15 @@ public final class MatchPersistenceService {
         }
 
         MatchConfiguration configuration = game.matchConfiguration();
+        matchRestorer.validateConfiguration(configuration);
 
         MatchSaveData data = new MatchSaveData(
                 MatchSaveData.CURRENT_VERSION,
                 game.playerMode(),
-                configuration.type(),
                 game.firstPlayer().country().id(),
                 game.secondPlayer().country().id(),
                 aiProfile,
-                configuration.goalLimit(),
-                configuration.durationSeconds(),
-                configuration.remainingSeconds(),
-                configuration.suddenDeath(),
-                configuration.parameters(),
+                configuration,
                 game.kickoffDelaySeconds(),
                 game.winner(),
                 game.isFinished(),
@@ -113,16 +109,16 @@ public final class MatchPersistenceService {
      */
     public LoadedMatch load() {
         MatchSaveData data = store.load();
-        Game game = matchFactory.createMatch(
-                new MatchFactory.MatchParameters(
+        Game game = matchRestorer.restore(
+                new MatchRestoreRequest(
                         data.playerMode(),
-                        data.matchType(),
                         data.firstCountryId(),
                         data.secondCountryId(),
-                        data.goalLimit(),
-                        data.durationSeconds(),
                         data.aiProfile(),
-                        data.matchParameters()));
+                        data.matchConfiguration()));
+        if (game == null) {
+            throw new DopoSoccerException("El restaurador devolvió un partido nulo.");
+        }
 
         restore(data.firstPlayer(), game.firstPlayer());
         restore(data.secondPlayer(), game.secondPlayer());
@@ -134,16 +130,13 @@ public final class MatchPersistenceService {
         ball.setVelocity(ballState.velocityX(), ballState.velocityY());
         if (ballState.powerId() != null) {
             Player owner = ballState.powerOwner() == 1 ? game.firstPlayer() : game.secondPlayer();
-            if (!(owner.country().power() instanceof ProjectilePower projectile)
-                    || !projectile.id().equals(ballState.powerId())) {
+            Power power = owner.country().power();
+            if (!power.restoreActiveShot(ball, owner, ballState.powerId(),
+                    ballState.powerTime(), ballState.powerEffectApplied())) {
                 throw new DopoSoccerException("El tiro guardado no coincide con su propietario.");
             }
-            ball.restorePowerShot(projectile, owner, ballState.powerTime(),
-                    ballState.powerEffectApplied());
         }
-        game.restoreMatchConfiguration(new MatchConfiguration(data.matchType(), data.goalLimit(),
-                data.durationSeconds(), data.remainingSeconds(), data.suddenDeath(),
-                data.matchParameters()));
+        game.restoreMatchConfiguration(data.matchConfiguration());
         if (data.finished()) {
             game.restoreLifecycle(data.winner());
         }
@@ -179,14 +172,15 @@ public final class MatchPersistenceService {
                 player.facingDirection(),
                 player.statusEffect(),
                 player.statusEffectTimer(),
-                player.impactLockTimer());
+                player.impactLockTimer(),
+                player.country().power().saveState(player));
     }
 
     private MatchSaveData.BallState snapshot(Ball ball, Game game) {
-        ProjectilePower power = ball.activePowerShot();
+        String powerId = ball.activePowerShotId();
         int owner = ball.powerShotOwner() == game.firstPlayer() ? 1
                 : ball.powerShotOwner() == game.secondPlayer() ? 2 : 0;
-        if ((power == null) != (owner == 0)) {
+        if ((powerId == null) != (owner == 0)) {
             throw new DopoSoccerException("El estado del tiro activo está inconsistente.");
         }
         return new MatchSaveData.BallState(
@@ -194,7 +188,7 @@ public final class MatchPersistenceService {
                 ball.y(),
                 ball.velocityX(),
                 ball.velocityY(),
-                power == null ? null : power.id(),
+                powerId,
                 owner,
                 ball.powerShotTime(),
                 ball.powerEffectApplied());
@@ -219,6 +213,7 @@ public final class MatchPersistenceService {
                 state.statusEffect(),
                 state.statusEffectTimer(),
                 state.impactLockTimer());
+        player.country().power().restoreState(player, state.powerExtensionState());
     }
 
     /**

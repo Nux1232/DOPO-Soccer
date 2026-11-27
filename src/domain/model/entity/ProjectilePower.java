@@ -3,15 +3,7 @@ package domain.model.entity;
 import domain.model.exception.DopoSoccerException;
 
 /** Capacidad adicional de un poder que se ejecuta como un proyectil asociado al balón. */
-public interface ProjectilePower extends Power {
-    /** @return nombre del recurso gráfico del proyectil */
-    String visualAsset();
-
-    /** @return color hexadecimal de respaldo para el renderizado */
-    String visualColor();
-
-    /** @return duración del proyectil y su efecto, en segundos */
-    double durationSeconds();
+public interface ProjectilePower extends Power, BallShot {
 
     /** @return daño base antes de aplicar multiplicadores del jugador */
     double damage();
@@ -24,21 +16,6 @@ public interface ProjectilePower extends Power {
 
     /** @return efecto temporal aplicado al rival al impactar */
     PlayerStatusEffect hitEffect();
-
-    /** @return coeficiente de restitución del balón durante el proyectil */
-    double restitution();
-
-    /** @return {@code true} si la presentación debe mostrar copias ilusorias del balón */
-    default boolean renderCopies() { return false; }
-
-    /**
-     * Aplica el efecto del proyectil al jugador impactado.
-     *
-     * @param owner jugador que lanzó el proyectil
-     * @param opponent jugador rival impactado
-     * @throws DopoSoccerException si no se puede aplicar el impacto
-     */
-    void applyImpact(Player owner, Player opponent) throws DopoSoccerException;
 
     /**
      * Ejecuta el comportamiento de proyectil usando las capacidades físicas disponibles.
@@ -58,9 +35,27 @@ public interface ProjectilePower extends Power {
     }
 
     @Override
+    default void activateInMatch(
+            PowerActivationContext context, Ball ball, PowerShotLauncher launcher)
+            throws DopoSoccerException {
+        if (launcher == null) {
+            throw new DopoSoccerException("El lanzador del poder es obligatorio.");
+        }
+        activateProjectile(context, ball, launcher::launch);
+    }
+
+    @Override
     default void activate(PowerActivationContext context) throws DopoSoccerException {
         throw new DopoSoccerException(
                 "Un poder de proyectil debe activarse con el contexto físico de la partida.");
+    }
+
+    @Override
+    default boolean restoreActiveShot(
+            Ball ball, Player owner, String powerId, double remainingSeconds, boolean effectApplied) {
+        if (ball == null || owner == null || !id().equals(powerId)) return false;
+        ball.restorePowerShot(this, owner, remainingSeconds, effectApplied);
+        return true;
     }
 
     /** Adaptador que permite lanzar el proyectil sin acoplar la habilidad a Dyn4j. */

@@ -17,15 +17,21 @@ public final class MatchRewardService {
         }
         Player first = game.firstPlayer();
         Player second = game.secondPlayer();
-        if (game.winner() == 1) {
-            first.stats().addPoints(100);
-            second.stats().addPoints(25);
-        } else if (game.winner() == 2) {
-            second.stats().addPoints(100);
-            first.stats().addPoints(25);
-        } else {
-            first.stats().addPoints(25);
-            second.stats().addPoints(25);
+        first.stats().addPoints(rewardFor(game, 1));
+        second.stats().addPoints(rewardFor(game, 2));
+    }
+
+    /**
+     * Calcula la recompensa sin modificar el partido, para poder persistirla antes de aplicarla.
+     *
+     * @param game partido finalizado
+     * @param playerNumber jugador 1 o 2
+     * @return puntos que recibirá ese jugador
+     */
+    public int rewardFor(Game game, int playerNumber) {
+        if (game == null || !game.isFinished() || (playerNumber != 1 && playerNumber != 2)) {
+            throw new DopoSoccerException("No se puede calcular la recompensa solicitada.");
         }
+        return game.winner() == 0 || game.winner() != playerNumber ? 25 : 100;
     }
 }

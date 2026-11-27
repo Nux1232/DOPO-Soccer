@@ -3,7 +3,7 @@ package domain.model.persistence;
 import domain.model.ai.AIProfile;
 import domain.model.entity.PlayerStatusEffect;
 import domain.model.entity.PowerState;
-import domain.model.game.MatchType;
+import domain.model.game.MatchConfiguration;
 import domain.model.game.PlayerMode;
 
 import java.io.Serial;
@@ -17,15 +17,10 @@ import java.util.TreeMap;
 public record MatchSaveData(
         int version,
         PlayerMode playerMode,
-        MatchType matchType,
         String firstCountryId,
         String secondCountryId,
         AIProfile aiProfile,
-        int goalLimit,
-        int durationSeconds,
-        double remainingSeconds,
-        boolean suddenDeath,
-        Map<String, String> matchParameters,
+        MatchConfiguration matchConfiguration,
         double kickoffDelaySeconds,
         int winner,
         boolean finished,
@@ -38,22 +33,16 @@ public record MatchSaveData(
     private static final long serialVersionUID = 1L;
 
     /** Versión actual del formato de serialización de partidas. */
-    public static final int CURRENT_VERSION = 3;
+    public static final int CURRENT_VERSION = 6;
 
     /** Valida la integridad mínima de los campos serializados del partido. */
     public MatchSaveData {
         if (version != CURRENT_VERSION
-                || playerMode == null || matchType == null
+                || playerMode == null || matchConfiguration == null
                 || firstCountryId == null || secondCountryId == null
                 || aiProfile == null || firstPlayer == null || secondPlayer == null || ball == null) {
             throw new IllegalArgumentException("Estado de partido guardado inválido.");
         }
-        matchParameters = matchParameters == null ? Map.of() : new TreeMap<>(matchParameters);
-    }
-
-    @Override
-    public Map<String, String> matchParameters() {
-        return Map.copyOf(matchParameters);
     }
 
     /** Estado serializable de un jugador dentro de una partida guardada. */
@@ -74,7 +63,8 @@ public record MatchSaveData(
             int facingDirection,
             PlayerStatusEffect statusEffect,
             double statusEffectTimer,
-            double impactLockTimer) implements Serializable {
+            double impactLockTimer,
+            Map<String, String> powerExtensionState) implements Serializable {
 
         @Serial
         private static final long serialVersionUID = 1L;
@@ -84,6 +74,17 @@ public record MatchSaveData(
             if (profile == null || power == null || statusEffect == null) {
                 throw new IllegalArgumentException("Estado de jugador guardado inválido.");
             }
+            powerExtensionState = powerExtensionState == null
+                    ? Map.of() : new TreeMap<>(powerExtensionState);
+            if (powerExtensionState.entrySet().stream()
+                    .anyMatch(entry -> entry.getKey().isBlank() || entry.getValue() == null)) {
+                throw new IllegalArgumentException("Estado adicional del poder guardado inválido.");
+            }
+        }
+
+        @Override
+        public Map<String, String> powerExtensionState() {
+            return Map.copyOf(powerExtensionState);
         }
     }
 

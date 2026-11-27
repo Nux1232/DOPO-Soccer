@@ -11,11 +11,11 @@ import java.util.List;
 import javafx.stage.Stage;
 import presentation.model.AIProfileOption;
 import presentation.model.CountryOption;
-import presentation.model.GameSnapshot;
-import presentation.model.GameSnapshot.PlayerSnapshot;
-import presentation.model.PlayerControls;
+import presentation.model.GameSnapshotMapper;
 import presentation.model.MatchSetup;
 import presentation.model.MatchTypeOption;
+import presentation.view.effects.PlayerEffectCatalog;
+import presentation.view.render.PowerShotRendererRegistry;
 
 
 /** Punto de composición y coordinador de presentación. Único puente hacia el dominio. */
@@ -62,6 +62,16 @@ public class DopoSoccerGUI extends Application {
         return new DopoSoccer();
     }
 
+    /** Punto de extensión de presentación para registrar animaciones de estados personalizadas. */
+    protected PlayerEffectCatalog createPlayerEffectCatalog() {
+        return PlayerEffectCatalog.defaults();
+    }
+
+    /** Punto de extensión para personalizar el dibujo de tiros especiales por ID. */
+    protected PowerShotRendererRegistry createPowerShotRendererRegistry() {
+        return new PowerShotRendererRegistry();
+    }
+
     private void showMainMenu() {
         if (dopoSoccer != null) dopoSoccer.reset();
         primaryStage.setMinWidth(WINDOW_WIDTH);
@@ -81,7 +91,8 @@ public class DopoSoccerGUI extends Application {
                 .map(type -> new MatchTypeOption(type.id(), type.displayName(),
                         type.parameters().stream().map(parameter -> new MatchTypeOption.Parameter(
                                 parameter.id(), parameter.label(), parameter.defaultValue(),
-                                parameter.minimum(), parameter.maximum(), parameter.multiplier()))
+                                parameter.minimum(), parameter.maximum(), parameter.multiplier(),
+                                MatchTypeOption.Type.valueOf(parameter.type()), parameter.options()))
                                 .toList()))
                 .toList();
         navigate(new CharacterSelectionPane(matchConfig, countries, aiProfiles, matchTypes,
@@ -129,8 +140,7 @@ public class DopoSoccerGUI extends Application {
                     config.matchType(),
                     config.firstCountry(),
                     config.secondCountry(),
-                    config.goalLimit(), config.durationSeconds(), config.aiProfile(),
-                    config.parameters()));
+                    config.aiProfile(), config.parameters()));
             openMatchView();
         } catch (Exception exception) {
             showError("No se pudo iniciar el partido", exception.getMessage());
@@ -174,39 +184,21 @@ public class DopoSoccerGUI extends Application {
 
     private void openMatchView() {
         activeGamePane = new GamePlayPane(
-                toPresentationSnapshot(dopoSoccer.snapshot()),
+                GameSnapshotMapper.toPresentation(dopoSoccer.snapshot()),
                 (first, second, delta) -> {
-                    dopoSoccer.updateMatch(toDomainActions(first), toDomainActions(second), delta);
-                    return toPresentationSnapshot(dopoSoccer.snapshot());
+                    dopoSoccer.updateMatch(
+                            GameSnapshotMapper.toDomain(first), GameSnapshotMapper.toDomain(second), delta);
+                    return GameSnapshotMapper.toPresentation(dopoSoccer.snapshot());
                 },
                 this::showMainMenu,
                 this::saveMatch,
                 () -> {
                     dopoSoccer.endMatch();
-                    return toPresentationSnapshot(dopoSoccer.snapshot());
-                });
+                    return GameSnapshotMapper.toPresentation(dopoSoccer.snapshot());
+                },
+                createPlayerEffectCatalog(),
+                createPowerShotRendererRegistry());
         navigate(activeGamePane);
-    }
-
-    private DopoSoccer.PlayerActions toDomainActions(PlayerControls controls) {
-        return new DopoSoccer.PlayerActions(controls.left(), controls.right(), controls.jump(), controls.kick(), controls.power());
-    }
-
-    private GameSnapshot toPresentationSnapshot(DopoSoccer.MatchSnapshot state) {
-        return new GameSnapshot(state.width(), state.height(), state.groundY(), state.goalTop(), state.goalDepth(),
-                state.modeDescription(), state.finished(), state.winner(),
-                toPresentationPlayer(state.firstPlayer()), toPresentationPlayer(state.secondPlayer()),
-                state.machineOpponent(), state.ballX(), state.ballY(), state.ballRadius(),
-                state.activePowerShot(), state.powerShotAsset(), state.powerShotColor(),
-                state.powerShotDuration(), state.powerShotElapsed(), state.powerShotRenderCopies());
-    }
-
-    private PlayerSnapshot toPresentationPlayer(DopoSoccer.PlayerSnapshot player) {
-        return new PlayerSnapshot(player.countryName(), player.jerseyColor(), player.flagAsset(),
-                player.x(), player.y(), player.goals(), player.health(), player.maxHealth(),
-                player.powerCharge(), player.points(), player.speed(), player.kick(), player.jump(),
-                player.survival(), player.facingDirection(), player.kicking(),
-                player.stunned(), "AURA".equals(player.power()), player.statusEffect());
     }
 
     private void navigate(Pane pane) {

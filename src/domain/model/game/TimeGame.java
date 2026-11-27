@@ -6,6 +6,8 @@ import domain.model.exception.DopoSoccerException;
 import domain.model.physics.PhysicsSimulation;
 import domain.model.game.lifecycle.MatchClock;
 
+import java.util.Map;
+
 /**
  * Partido que termina cuando se agota el tiempo.
  */
@@ -83,18 +85,33 @@ public final class TimeGame extends Game {
 
     @Override
     public MatchConfiguration matchConfiguration() {
-        return new MatchConfiguration(MatchType.TIME, 10, durationSeconds(),
-                remainingExactSeconds(), suddenDeath);
+        return new MatchConfiguration(
+                MatchType.TIME,
+                Map.of("durationSeconds", new MatchValue.IntegerNumber(durationSeconds())),
+                Map.of("remainingSeconds", new MatchValue.DecimalNumber(remainingExactSeconds()),
+                        "suddenDeath", new MatchValue.Flag(suddenDeath)));
     }
 
     @Override
     public void restoreMatchConfiguration(MatchConfiguration configuration) {
-        if (configuration == null || !MatchType.TIME.equals(configuration.type())
-                || configuration.durationSeconds() != durationSeconds()) {
+        if (configuration == null || !MatchType.TIME.equals(configuration.type())) {
             throw new DopoSoccerException("La configuración guardada no corresponde a este partido.");
         }
-        clock.restoreRemaining(configuration.remainingSeconds());
-        suddenDeath = configuration.suddenDeath();
+        try {
+            MatchValue durationValue = configuration.parameters().get("durationSeconds");
+            MatchValue remainingValue = configuration.state().get("remainingSeconds");
+            MatchValue suddenDeathValue = configuration.state().get("suddenDeath");
+            if (!(durationValue instanceof MatchValue.IntegerNumber savedDuration)
+                    || !(remainingValue instanceof MatchValue.DecimalNumber remaining)
+                    || !(suddenDeathValue instanceof MatchValue.Flag savedSuddenDeath)
+                    || savedDuration.value() != durationSeconds() || remaining.value() < 0) {
+                throw new IllegalArgumentException("La configuración temporal no es válida.");
+            }
+            clock.restoreRemaining(remaining.value());
+            suddenDeath = savedSuddenDeath.value();
+        } catch (NullPointerException exception) {
+            throw new DopoSoccerException("La configuración temporal guardada es inválida.", exception);
+        }
     }
 
     /** @return segundos restantes redondeados hacia arriba para visualización */

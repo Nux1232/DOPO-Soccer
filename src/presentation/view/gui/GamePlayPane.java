@@ -4,7 +4,9 @@ import presentation.input.KeyboardInputHandler;
 import presentation.model.GameSnapshot;
 import presentation.model.PlayerControls;
 import presentation.view.render.GameRenderer;
+import presentation.view.render.PowerShotRendererRegistry;
 import presentation.view.effects.PlayerEffectsLayer;
+import presentation.view.effects.PlayerEffectCatalog;
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -56,8 +58,8 @@ public final class GamePlayPane extends BorderPane {
     private final Runnable onBack;
     private final Runnable onSave;
     private final GameFinishHandler onFinish;
-    private final GameRenderer renderer = new GameRenderer();
-    private final PlayerEffectsLayer effectsLayer = new PlayerEffectsLayer();
+    private final GameRenderer renderer;
+    private final PlayerEffectsLayer effectsLayer;
     private final Canvas canvas = new Canvas();
     private AnimationTimer animationTimer;
     private boolean paused = false;
@@ -98,11 +100,37 @@ public final class GamePlayPane extends BorderPane {
      */
     public GamePlayPane(GameSnapshot initialSnapshot, GameUpdateHandler onUpdate,
             Runnable onBack, Runnable onSave, GameFinishHandler onFinish) {
+        this(initialSnapshot, onUpdate, onBack, onSave, onFinish, PlayerEffectCatalog.defaults());
+    }
+
+    /**
+     * Crea la vista de juego con un catálogo de efectos visuales extensible.
+     *
+     * @param initialSnapshot instantánea inicial del partido
+     * @param onUpdate manejador de actualización por cuadro
+     * @param onBack acción para volver al menú
+     * @param onSave acción para guardar
+     * @param onFinish manejador de finalización manual
+     * @param effectCatalog catálogo de animaciones de estados
+     */
+    public GamePlayPane(GameSnapshot initialSnapshot, GameUpdateHandler onUpdate,
+            Runnable onBack, Runnable onSave, GameFinishHandler onFinish,
+            PlayerEffectCatalog effectCatalog) {
+        this(initialSnapshot, onUpdate, onBack, onSave, onFinish,
+                effectCatalog, new PowerShotRendererRegistry());
+    }
+
+    /** Crea la vista con catálogos configurables de animaciones de jugador y tiros. */
+    public GamePlayPane(GameSnapshot initialSnapshot, GameUpdateHandler onUpdate,
+            Runnable onBack, Runnable onSave, GameFinishHandler onFinish,
+            PlayerEffectCatalog effectCatalog, PowerShotRendererRegistry shotRenderers) {
         this.snapshot = initialSnapshot;
         this.onUpdate = onUpdate;
         this.onBack = onBack;
         this.onSave = onSave;
         this.onFinish = onFinish;
+        this.renderer = new GameRenderer(shotRenderers);
+        this.effectsLayer = new PlayerEffectsLayer(effectCatalog);
         setStyle("-fx-background-color: #edf3f5;");
 
         StackPane gameArea = new StackPane(canvas, effectsLayer);

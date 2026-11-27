@@ -15,29 +15,67 @@ import java.util.Properties;
 
 /**
  * Catálogo de selecciones cargado desde {@code resources/countries.properties}.
- * El archivo reúne identidad visual, alias y configuración del poder por país.
+ * El archivo reúne identidad visual, alias y tipo/configuración del poder por país.
  */
 public final class CountryCatalog {
     private static final String RESOURCE_PATH = "/resources/countries.properties";
-    private static final List<Country> COUNTRIES;
-    private static final Map<String, Country> COUNTRIES_BY_ID;
+    private static final class DefaultHolder {
+        private static final CountryCatalog INSTANCE = loadDefault(PowerFactoryRegistry.defaultRegistry());
+    }
 
-    static {
+    private final List<Country> countries;
+    private final Map<String, Country> countriesById;
+
+    private CountryCatalog(Properties properties, PowerFactoryRegistry powerFactories) {
+        countries = loadCountries(properties, powerFactories);
+        countriesById = indexCountries(properties, countries);
+    }
+
+    /** @return catálogo predeterminado del juego */
+    public static CountryCatalog defaultCatalog() {
+        return DefaultHolder.INSTANCE;
+    }
+
+    /**
+     * Carga el catálogo incluido en recursos usando el registro de poderes indicado.
+     *
+     * @param powerFactories fábricas disponibles antes de procesar los países
+     * @return catálogo independiente de países
+     */
+    public static CountryCatalog loadDefault(PowerFactoryRegistry powerFactories) {
+        if (powerFactories == null) {
+            throw new DopoSoccerException("El registro de fábricas de poderes es obligatorio.");
+        }
         try {
-            Properties properties = loadProperties();
-            COUNTRIES = loadCountries(properties);
-            COUNTRIES_BY_ID = indexCountries(properties, COUNTRIES);
+            return new CountryCatalog(loadProperties(), powerFactories);
         } catch (IOException | IllegalArgumentException exception) {
-            throw new ExceptionInInitializerError(
-                    new DopoSoccerException("No se pudo cargar el catálogo de países.", exception));
+            throw new DopoSoccerException("No se pudo cargar el catálogo de países.", exception);
         }
     }
 
-    private CountryCatalog() { }
+    /**
+     * Construye un catálogo aislado desde propiedades, útil para aplicaciones y pruebas.
+     *
+     * @param properties propiedades con países y sus poderes
+     * @param powerFactories registro de fábricas de poderes
+     * @return catálogo independiente
+     */
+    public static CountryCatalog fromProperties(
+            Properties properties, PowerFactoryRegistry powerFactories) {
+        if (properties == null || powerFactories == null) {
+            throw new DopoSoccerException("Las propiedades y las fábricas del catálogo son obligatorias.");
+        }
+        return new CountryCatalog(properties, powerFactories);
+    }
 
     /** @return lista inmutable de países configurados */
     public static List<Country> all() {
-        return COUNTRIES;
+        return defaultCatalog().countries();
+    }
+
+    /** @return países de esta instancia inmutables */
+    public List<Country> countries() {
+        return countries;
     }
 
     /**
@@ -48,8 +86,13 @@ public final class CountryCatalog {
      * @throws DopoSoccerException si el ID no está registrado
      */
     public static Country get(String id) {
+        return defaultCatalog().find(id);
+    }
+
+    /** Busca un país en esta instancia por ID o alias. */
+    public Country find(String id) {
         if (id == null) throw new DopoSoccerException(DopoSoccerException.INVALID_COUNTRY);
-        Country country = COUNTRIES_BY_ID.get(normalize(id));
+        Country country = countriesById.get(normalize(id));
         if (country == null) {
             throw new DopoSoccerException(DopoSoccerException.INVALID_COUNTRY + " " + id);
         }
@@ -67,26 +110,21 @@ public final class CountryCatalog {
         return properties;
     }
 
-    private static List<Country> loadCountries(Properties properties) {
+    private static List<Country> loadCountries(Properties properties, PowerFactoryRegistry powerFactories) {
         String configuredIds = required(properties, "countries");
         List<Country> countries = new ArrayList<>();
         for (String id : configuredIds.split(",")) {
             String countryId = id.trim();
             String prefix = "country." + countryId + ".";
-            ProjectilePower power = new ImpactPower(
-                    required(properties, prefix + "power.id"),
-                    required(properties, prefix + "power.asset"),
-                    required(properties, prefix + "power.color"),
-                    decimal(properties, prefix + "power.duration"),
-                    decimal(properties, prefix + "power.damage"),
-                    decimal(properties, prefix + "power.speedX"),
-                    decimal(properties, prefix + "power.speedY"),
-                    PlayerStatusEffect.valueOf(required(properties, prefix + "power.effect")),
-                    decimal(properties, prefix + "power.restitution"),
-                    decimal(properties, prefix + "power.knockbackX"),
-                    decimal(properties, prefix + "power.knockbackY"),
-                    decimal(properties, prefix + "power.knockbackSeconds"),
-                    Boolean.parseBoolean(required(properties, prefix + "power.renderCopies")));
+            Map<String, String> powerConfiguration = new LinkedHashMap<>();
+            String powerPrefix = prefix + "power.";
+            for (String key : properties.stringPropertyNames()) {
+                if (key.startsWith(powerPrefix) && !"type".equals(key.substring(powerPrefix.length()))) {
+                    powerConfiguration.put(key.substring(powerPrefix.length()), properties.getProperty(key));
+                }
+            }
+            Power power = powerFactories.create(
+                    required(properties, powerPrefix + "type"), powerConfiguration);
             countries.add(new Country(
                     countryId,
                     required(properties, prefix + "name"),
@@ -123,10 +161,6 @@ public final class CountryCatalog {
             throw new IllegalArgumentException("Falta configuración obligatoria: " + key);
         }
         return value.trim();
-    }
-
-    private static double decimal(Properties properties, String key) {
-        return Double.parseDouble(required(properties, key));
     }
 
     private static String normalize(String id) {

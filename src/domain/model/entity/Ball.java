@@ -23,7 +23,7 @@ public final class Ball {
 
     /** Velocidad vertical actual del balón. */
     private double velocityY;
-    private ProjectilePower activePowerShot;
+    private BallShot activePowerShot;
     private Player powerShotOwner;
     private double powerShotTime;
     private boolean powerEffectApplied;
@@ -76,8 +76,13 @@ public final class Ball {
     }
 
     /** @return tiro de poder activo en el balón, o {@code null} si es un tiro normal */
-    public ProjectilePower activePowerShot() {
+    public BallShot activePowerShot() {
         return activePowerShot;
+    }
+
+    /** @return identificador del tiro activo, o {@code null} si el balón no tiene tiro especial */
+    public String activePowerShotId() {
+        return activePowerShot == null ? null : activePowerShot.id();
     }
 
     /** @return jugador que ejecutó el tiro de poder activo */
@@ -101,7 +106,7 @@ public final class Ball {
      * @param shot poder especial ejecutado
      * @param owner jugador propietario del disparo
      */
-    public void startPowerShot(ProjectilePower shot, Player owner) {
+    public void startPowerShot(BallShot shot, Player owner) {
         activePowerShot = shot;
         powerShotOwner = owner;
         powerShotTime = shot.durationSeconds();
@@ -136,7 +141,7 @@ public final class Ball {
      * @param remaining tiempo restante en segundos
      * @param effectApplied {@code true} si el impacto ya fue aplicado
      */
-    public void restorePowerShot(ProjectilePower shot, Player owner, double remaining, boolean effectApplied) {
+    public void restorePowerShot(BallShot shot, Player owner, double remaining, boolean effectApplied) {
         if (shot == null || owner == null) {
             clearPowerShot();
             return;

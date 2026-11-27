@@ -2,9 +2,9 @@ package domain;
 
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
-import domain.model.entity.CountryCatalog;
 import domain.model.entity.Player;
 import domain.model.entity.Ball;
+import domain.model.entity.BallShot;
 import domain.model.entity.Power;
 import domain.model.entity.ProjectilePower;
 import domain.factory.MatchFactory;
@@ -91,28 +91,36 @@ public final class DopoSoccer {
 
     /** Campo de configuración que una modalidad presenta al usuario. */
     public record MatchParameterSummary(
-            String id, String label, String defaultValue, int minimum, int maximum, int multiplier) { }
+            String id, String label, String defaultValue, int minimum, int maximum, int multiplier,
+            String type, List<String> options) { }
 
     /** Resumen inmutable de la progresión persistente de un jugador. */
     public record PlayerProfileSummary(int speed, int kick, int jump, int survival, int points, int nextUpgradeCost) { }
 
     /** Contrato público para iniciar un partido, sin exponer entidades. */
     public record MatchRequest(PlayerModeKind playerMode, String matchType,
-            String firstCountry, String secondCountry, int goalLimit, int durationSeconds, String aiProfile,
-            Map<String, String> parameters) {
+            String firstCountry, String secondCountry, String aiProfile, Map<String, String> parameters) {
         public MatchRequest(PlayerModeKind mode, String type, String first, String second,
                 int goals, int seconds, String profile) {
-            this(mode, type, first, second, goals, seconds, profile, Map.of());
+            this(mode, type, first, second, profile, legacyParameters(type, goals, seconds, Map.of()));
+        }
+
+        /** Compatibilidad con solicitudes previas que incluían límites genéricos. */
+        public MatchRequest(PlayerModeKind mode, String type, String first, String second,
+                int goals, int seconds, String profile, Map<String, String> parameters) {
+            this(mode, type, first, second, profile, legacyParameters(type, goals, seconds, parameters));
         }
 
         public MatchRequest(PlayerModeKind mode, MatchKind type, String first, String second,
                 int goals, int seconds, String profile) {
-            this(mode, type == null ? null : type.name(), first, second, goals, seconds, profile, Map.of());
+            this(mode, type == null ? null : type.name().toLowerCase(java.util.Locale.ROOT),
+                    first, second, goals, seconds, profile, Map.of());
         }
 
         public MatchRequest(PlayerModeKind mode, MatchKind type, String first, String second,
                 int goals, int seconds) {
-            this(mode, type == null ? null : type.name(), first, second, goals, seconds, "EXPERT", Map.of());
+            this(mode, type == null ? null : type.name().toLowerCase(java.util.Locale.ROOT),
+                    first, second, goals, seconds, "EXPERT", Map.of());
         }
 
         public MatchRequest(PlayerModeKind mode, String type, String first, String second,
@@ -123,7 +131,20 @@ public final class DopoSoccer {
         public MatchRequest {
             parameters = parameters == null ? Map.of() : Map.copyOf(parameters);
         }
+    }
 
+    private static Map<String, String> legacyParameters(
+            String type, int goals, int seconds, Map<String, String> supplied) {
+        Map<String, String> values = new java.util.HashMap<>(supplied == null ? Map.of() : supplied);
+        if ("goals".equalsIgnoreCase(type) && goals > 0) {
+            values.putIfAbsent("goalLimit", Integer.toString(goals));
+        } else if ("time".equalsIgnoreCase(type) && seconds > 0) {
+            if (seconds % 60 != 0) {
+                throw new DopoSoccerException("La duración heredada debe expresarse en minutos completos.");
+            }
+            values.putIfAbsent("durationSeconds", Integer.toString(seconds / 60));
+        }
+        return Map.copyOf(values);
     }
 
     /** Acciones abstractas independientes del teclado o dispositivo. */
@@ -140,13 +161,47 @@ public final class DopoSoccer {
     public record MatchSnapshot(double width, double height, double groundY, double goalTop, double goalDepth,
             String modeDescription, boolean finished, int winner,
             PlayerSnapshot firstPlayer, PlayerSnapshot secondPlayer, boolean machineOpponent,
-            double ballX, double ballY, double ballRadius,
-            String activePowerShot, String powerShotAsset, String powerShotColor,
-            double powerShotDuration, double powerShotElapsed, boolean powerShotRenderCopies) { }
+            BallSnapshot ball) {
+        public MatchSnapshot(double width, double height, double groundY, double goalTop, double goalDepth,
+                String modeDescription, boolean finished, int winner,
+                PlayerSnapshot firstPlayer, PlayerSnapshot secondPlayer, boolean machineOpponent,
+                double ballX, double ballY, double ballRadius,
+                String activePowerShot, String powerShotAsset, String powerShotColor,
+                double powerShotDuration, double powerShotElapsed, boolean powerShotRenderCopies) {
+            this(width, height, groundY, goalTop, goalDepth, modeDescription, finished, winner,
+                    firstPlayer, secondPlayer, machineOpponent,
+                    new BallSnapshot(ballX, ballY, ballRadius, activePowerShot == null ? null
+                            : new PowerShotSnapshot(activePowerShot, powerShotAsset, powerShotColor,
+                                    powerShotDuration, powerShotElapsed, powerShotRenderCopies)));
+        }
+
+        public double ballX() { return ball.x(); }
+        public double ballY() { return ball.y(); }
+        public double ballRadius() { return ball.radius(); }
+        public String activePowerShot() { return ball.powerShot() == null ? null : ball.powerShot().id(); }
+        public String powerShotAsset() { return ball.powerShot() == null ? null : ball.powerShot().asset(); }
+        public String powerShotColor() { return ball.powerShot() == null ? null : ball.powerShot().color(); }
+        public double powerShotDuration() {
+            return ball.powerShot() == null ? 0 : ball.powerShot().duration();
+        }
+        public double powerShotElapsed() {
+            return ball.powerShot() == null ? 0 : ball.powerShot().elapsed();
+        }
+        public boolean powerShotRenderCopies() {
+            return ball.powerShot() != null && ball.powerShot().renderCopies();
+        }
+    }
+
+    /** Estado del balón agrupado con la representación del tiro que lo afecta. */
+    public record BallSnapshot(double x, double y, double radius, PowerShotSnapshot powerShot) { }
+
+    /** Datos visuales cohesivos de un tiro especial activo. */
+    public record PowerShotSnapshot(
+            String id, String asset, String color, double duration, double elapsed, boolean renderCopies) { }
 
     /** Catálogo público de países disponibles sin exponer entidades del dominio. */
     public List<CountrySummary> availableCountries() {
-        return CountryCatalog.all().stream()
+        return matchFactory.availableCountries().stream()
                 .map(country -> new CountrySummary(
                         country.id(), country.displayName(), country.color(), country.flagAsset()))
                 .toList();
@@ -166,7 +221,8 @@ public final class DopoSoccer {
                         type.type().id(), type.displayName(),
                         type.parameters().stream().map(parameter -> new MatchParameterSummary(
                                 parameter.id(), parameter.label(), parameter.defaultValue(),
-                                parameter.minimum(), parameter.maximum(), parameter.multiplier()))
+                                parameter.minimum(), parameter.maximum(), parameter.multiplier(),
+                                parameter.type().name(), parameter.options()))
                                 .toList()))
                 .toList();
     }
@@ -199,8 +255,6 @@ public final class DopoSoccer {
                     domain.model.game.MatchType.of(request.matchType()),
                     request.firstCountry(),
                     request.secondCountry(),
-                    request.goalLimit(),
-                    request.durationSeconds(),
                     AIProfile.valueOf(request.aiProfile() == null ? "EXPERT" : request.aiProfile()),
                     request.parameters());
         } catch (IllegalArgumentException exception) {
@@ -346,16 +400,15 @@ public final class DopoSoccer {
         Player first = currentMatch.firstPlayer();
         Player second = currentMatch.secondPlayer();
         Ball ball = currentMatch.ball();
-        ProjectilePower shot = ball.activePowerShot();
+        BallShot shot = ball.activePowerShot();
+        PowerShotSnapshot powerShot = shot == null ? null : new PowerShotSnapshot(
+                shot.id(), shot.visualAsset(), shot.visualColor(), shot.durationSeconds(),
+                shot.durationSeconds() - ball.powerShotTime(), shot.renderCopies());
         return new MatchSnapshot(Game.WIDTH, Game.HEIGHT, Game.GROUND_Y, Game.GOAL_TOP, Game.GOAL_DEPTH,
                 currentMatch.modeDescription(), currentMatch.isFinished(), currentMatch.winner(),
                 playerSnapshot(first), playerSnapshot(second),
                 currentMatch.playerMode() == domain.model.game.PlayerMode.PLAYER_VS_MACHINE,
-                ball.x(), ball.y(), Ball.RADIUS,
-                shot == null ? null : shot.id(), shot == null ? null : shot.visualAsset(),
-                shot == null ? null : shot.visualColor(), shot == null ? 0 : shot.durationSeconds(),
-                shot == null ? 0 : shot.durationSeconds() - ball.powerShotTime(),
-                shot != null && shot.renderCopies());
+                new BallSnapshot(ball.x(), ball.y(), Ball.RADIUS, powerShot));
     }
 
     private PlayerSnapshot playerSnapshot(Player player) {

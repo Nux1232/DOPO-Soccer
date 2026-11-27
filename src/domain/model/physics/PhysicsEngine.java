@@ -1,10 +1,10 @@
 package domain.model.physics;
 
 import domain.model.entity.Ball;
+import domain.model.entity.BallShot;
 import domain.model.entity.Player;
 import domain.model.entity.Power;
 import domain.model.entity.PowerActivationContext;
-import domain.model.entity.ProjectilePower;
 import domain.model.entity.PowerState;
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
@@ -131,8 +131,8 @@ public class PhysicsEngine implements PhysicsSimulation {
         first.tick(dt);
         second.tick(dt);
         ball.tickPowerShot(dt);
-        ballBody.getFixture(0).setRestitution(
-                ball.activePowerShot() == null ? 0.72 : ball.activePowerShot().restitution());
+        BallShot activeShot = ball.activePowerShot();
+        ballBody.getFixture(0).setRestitution(activeShot == null ? 0.72 : activeShot.restitution());
 
         // 1. Aplicar entradas de control a los jugadores
         inputHandler.apply(first, firstInput, kickoffLocked);
@@ -196,19 +196,15 @@ public class PhysicsEngine implements PhysicsSimulation {
         if (player.consumePower()) {
             player.setFacingDirection(dir);
             PowerActivationContext context = new PowerActivationContext(player, opponent, dir);
-            if (power instanceof ProjectilePower projectile) {
-                projectile.activateProjectile(
-                        context, ball, active -> launchProjectile(player, ball, dir, active));
-            } else {
-                power.activate(context);
-            }
+            power.activateInMatch(context, ball,
+                    shot -> launchShot(player, ball, dir, shot));
         }
     }
 
-    private void launchProjectile(Player player, Ball ball, int direction, ProjectilePower projectile) {
-        ball.startPowerShot(projectile, player);
-        ball.setVelocity(direction * projectile.horizontalSpeed(), projectile.verticalSpeed());
-        ballBody.getFixture(0).setRestitution(projectile.restitution());
+    private void launchShot(Player player, Ball ball, int direction, BallShot shot) {
+        ball.startPowerShot(shot, player);
+        ball.setVelocity(direction * shot.horizontalSpeed(), shot.verticalSpeed());
+        ballBody.getFixture(0).setRestitution(shot.restitution());
         syncBallToBody(ball, ballBody);
     }
 
@@ -420,7 +416,8 @@ public class PhysicsEngine implements PhysicsSimulation {
         if (y + Ball.RADIUS >= Game.GROUND_Y - 0.5) {
             y = Game.GROUND_Y - Ball.RADIUS;
             if (vy > 0) {
-                double bounceMultiplier = ball.activePowerShot() == null ? 0.72 : ball.activePowerShot().restitution();
+                BallShot activeShot = ball.activePowerShot();
+                double bounceMultiplier = activeShot == null ? 0.72 : activeShot.restitution();
                 vy = -vy * bounceMultiplier;
             }
             // Si el rebote vertical ya es muy pequeño, detener el rebote en el suelo

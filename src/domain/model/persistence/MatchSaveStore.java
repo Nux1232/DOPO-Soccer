@@ -1,6 +1,8 @@
 package domain.model.persistence;
 
 import domain.model.exception.DopoSoccerException;
+import domain.model.game.MatchConfiguration;
+import domain.model.game.MatchValue;
 import domain.model.game.MatchType;
 
 import java.io.IOException;
@@ -98,6 +100,12 @@ public final class MatchSaveStore implements MatchSaveRepository {
                 || type == MatchSaveData.PlayerState.class
                 || type == MatchSaveData.BallState.class
                 || type == PlayerProfile.class
+                || type == MatchConfiguration.class
+                || type == MatchValue.class
+                || type == MatchValue.Text.class
+                || type == MatchValue.IntegerNumber.class
+                || type == MatchValue.DecimalNumber.class
+                || type == MatchValue.Flag.class
                 || type == MatchType.class
                 || type == String.class
                 || type == java.util.TreeMap.class

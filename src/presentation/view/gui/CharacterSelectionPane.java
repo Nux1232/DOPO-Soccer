@@ -13,13 +13,9 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.control.TextField;
-import javafx.scene.control.TextFormatter;
 import javafx.scene.control.ScrollPane;
 import javafx.util.StringConverter;
 import java.util.List;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Consumer;
 /**
  * Pantalla de selección de personajes.
@@ -99,146 +95,14 @@ public class CharacterSelectionPane extends StackPane {
                         "-fx-background-radius: 20;" +
                         "-fx-padding: 8 20 8 20;"
         );
-        // MODALIDAD DEL PARTIDO
-        Label matchTypeLabel = new Label("MODO DE JUEGO");
-        matchTypeLabel.setStyle(
-                "-fx-font-size: 20px;" +
-                        "-fx-font-weight: 900;" +
-                        "-fx-text-fill: white;"
-        );
-        matchTypeLabel.setMinHeight(30);
-        matchTypeLabel.setAlignment(Pos.CENTER);
-
-        ComboBox<MatchTypeOption> matchTypeSelector = new ComboBox<>();
-        matchTypeSelector.getItems().setAll(matchTypes);
-        MatchTypeOption selectedType = matchTypes.stream()
-                .filter(type -> type.id().equals(matchConfig.matchType()))
-                .findFirst()
-                .orElse(matchTypes.isEmpty() ? null : matchTypes.get(0));
-        if (selectedType != null) {
-            matchConfig.matchType(selectedType.id());
-            matchTypeSelector.setValue(selectedType);
-        }
-        matchTypeSelector.setPrefWidth(190);
-        matchTypeSelector.setPrefHeight(38);
-
-        matchTypeSelector.setConverter(new StringConverter<>() {
-            @Override
-            public String toString(MatchTypeOption type) {
-                return type == null ? "" : type.displayName();
-            }
-
-            @Override
-            public MatchTypeOption fromString(String value) {
-                return matchTypes.stream()
-                        .filter(type -> type.displayName().equals(value))
-                        .findFirst()
-                        .orElse(null);
-            }
-        });
-
-
-        VBox parameterBox = new VBox(8);
-        Map<String, TextField> parameterFields = new HashMap<>();
-        parameterBox.setAlignment(Pos.CENTER_LEFT);
-        Runnable updateParameters = () -> {
-            parameterBox.getChildren().clear();
-            parameterFields.clear();
-            MatchTypeOption selected = matchTypeSelector.getValue();
-            if (selected == null) return;
-            for (MatchTypeOption.Parameter parameter : selected.parameters()) {
-                Label label = new Label(parameter.label());
-                label.setStyle("-fx-text-fill: #c8d9eb; -fx-font-size: 12px; -fx-font-weight: bold;");
-                TextField field = new TextField(
-                        matchConfig.parameter(parameter.id(), parameter.defaultValue()));
-                field.setPrefWidth(140);
-                field.setPrefHeight(38);
-                field.setTextFormatter(new TextFormatter<String>(change ->
-                        change.getControlNewText().matches("\\d*") ? change : null));
-                matchConfig.setParameter(parameter.id(), field.getText());
-                applyMatchParameter(parameter, field.getText());
-                field.textProperty().addListener((obs, oldValue, newValue) -> {
-                    if (newValue.isBlank()) return;
-                    try {
-                        int value = Integer.parseInt(newValue);
-                        if (value < parameter.minimum() || value > parameter.maximum()) return;
-                        matchConfig.setParameter(parameter.id(), newValue);
-                        applyMatchParameter(parameter, newValue);
-                    } catch (ArithmeticException | NumberFormatException ignored) {
-                        // Se conserva el último valor válido hasta que el campo sea corregido.
-                    }
-                });
-                parameterFields.put(parameter.id(), field);
-                parameterBox.getChildren().add(new VBox(5, label, field));
-            }
-        };
-        updateParameters.run();
-
-        Runnable updateMatchOptions = () -> {
-            updateParameters.run();
-        };
-
-        matchTypeSelector.setOnAction(event -> {
-            MatchTypeOption selected = matchTypeSelector.getValue();
-
-            if (selected != null) {
-                matchConfig.matchType(selected.id());
-                updateMatchOptions.run();
-            }
-
-        });
-
-        updateMatchOptions.run();
-
-
-// Distribución de los controles
-        Label modeLabel = new Label("MODALIDAD");
-        modeLabel.setStyle(
-                "-fx-text-fill: #c8d9eb;" +
-                        "-fx-font-size: 12px;" +
-                        "-fx-font-weight: bold;"
-        );
-
-        VBox modeBox = new VBox(7, modeLabel, matchTypeSelector);
-        modeBox.setAlignment(Pos.CENTER);
-
-        VBox settingsOptions = new VBox();
-        HBox settingsRow = new HBox(18,
-                modeBox,
-                parameterBox
-        );
-
-        settingsRow.setAlignment(Pos.CENTER);
-
-        settingsOptions.getChildren().add(settingsRow);
-        settingsOptions.setAlignment(Pos.CENTER);
-
-        VBox matchSettings = new VBox(
-                12,
-                matchTypeLabel,
-                settingsOptions
-        );
-
-        matchSettings.setAlignment(Pos.CENTER);
-        matchSettings.setPadding(new Insets(14, 20, 14, 20));
-        matchSettings.setPrefWidth(560);
-        matchSettings.setMaxWidth(560);
-
-        matchSettings.setStyle(
-                "-fx-background-color: rgba(8,25,48,0.94);" +
-                        "-fx-background-radius: 18;" +
-                        "-fx-border-color: rgba(255,255,255,0.18);" +
-                        "-fx-border-radius: 18;"
-        );
-
-
-
-        VBox firstCard = createPlayerCard("JUGADOR 1", matchConfig.firstCountry(), true
-        );
+        MatchConfigurationPane matchSettings = new MatchConfigurationPane(matchConfig, matchTypes);
+        VBox firstCard = new PlayerCountryCard(
+                "JUGADOR 1", matchConfig.firstCountry(), true, matchConfig, countries);
 
         String secondHeading = "PLAYER_VS_MACHINE".equals(matchConfig.playerMode())
                 ? "MÁQUINA" : "JUGADOR 2";
-        VBox secondCard = createPlayerCard(secondHeading, matchConfig.secondCountry(), false);
+        VBox secondCard = new PlayerCountryCard(
+                secondHeading, matchConfig.secondCountry(), false, matchConfig, countries);
 
         HBox playerRow = new HBox(18);
         playerRow.setAlignment(Pos.CENTER);
@@ -394,27 +258,16 @@ public class CharacterSelectionPane extends StackPane {
         );
 
         startButton.setOnAction(event -> {
-            MatchTypeOption selected = matchTypeSelector.getValue();
-            if (selected != null) {
-                for (MatchTypeOption.Parameter parameter : selected.parameters()) {
-                    TextField field = parameterFields.get(parameter.id());
-                    try {
-                        int value = Integer.parseInt(field.getText());
-                        if (value < parameter.minimum() || value > parameter.maximum()) {
-                            throw new NumberFormatException();
-                        }
-                        Math.multiplyExact(value, parameter.multiplier());
-                    } catch (ArithmeticException | NumberFormatException exception) {
-                        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                                javafx.scene.control.Alert.AlertType.WARNING);
-                        alert.setTitle("Configuración inválida");
-                        alert.setHeaderText("Revisa los parámetros del partido");
-                        alert.setContentText(parameter.label() + " debe estar entre "
-                                + parameter.minimum() + " y " + parameter.maximum() + ".");
-                        alert.showAndWait();
-                        return;
-                    }
-                }
+            try {
+                matchSettings.validateAndApply();
+            } catch (IllegalArgumentException exception) {
+                javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+                        javafx.scene.control.Alert.AlertType.WARNING);
+                alert.setTitle("Configuración inválida");
+                alert.setHeaderText("Revisa los parámetros del partido");
+                alert.setContentText(exception.getMessage());
+                alert.showAndWait();
+                return;
             }
             startMatch();
         });
@@ -474,99 +327,6 @@ public class CharacterSelectionPane extends StackPane {
         StackPane.setAlignment(scrollPane, Pos.CENTER);
     }
 
-    private void applyMatchParameter(MatchTypeOption.Parameter parameter, String text) {
-        try {
-            int configuredValue = Math.multiplyExact(
-                    Integer.parseInt(text), parameter.multiplier());
-            if ("goalLimit".equals(parameter.id())) matchConfig.goalLimit(configuredValue);
-            if ("durationSeconds".equals(parameter.id())) matchConfig.durationSeconds(configuredValue);
-        } catch (ArithmeticException | NumberFormatException ignored) {
-            // Se mantiene el último valor válido mientras el campo se edita.
-        }
-    }
-
-    private VBox createPlayerCard(String heading, String selectedCountryId, boolean firstPlayer) {
-        Label playerLabel = new Label(heading);
-        playerLabel.setStyle(
-                "-fx-font-size: 19px;" +
-                        "-fx-font-weight: 900;" +
-                        "-fx-text-fill: white;"
-        );
-        Label instruction = new Label("ELIGE TU PAÍS");
-        instruction.setStyle(
-                "-fx-font-size: 12px;" +
-                        "-fx-text-fill: #c8d9eb;"
-        );
-        ComboBox<CountryOption> countrySelector = new ComboBox<>();
-        countrySelector.getItems().setAll(countries);
-        CountryOption selectedCountry = countries.stream()
-                .filter(country -> country.id().equalsIgnoreCase(selectedCountryId))
-                .findFirst()
-                .orElse(countries.isEmpty() ? null : countries.get(0));
-        countrySelector.setValue(selectedCountry);
-        if (selectedCountry != null) {
-            if (firstPlayer) {
-                matchConfig.firstCountry(selectedCountry.id());
-            } else {
-                matchConfig.secondCountry(selectedCountry.id());
-            }
-        }
-        countrySelector.setPrefWidth(285);
-        countrySelector.setPrefHeight(42);
-        countrySelector.setMaxWidth(Double.MAX_VALUE);
-        countrySelector.setStyle(
-                "-fx-font-size: 15px;" +
-                        "-fx-background-radius: 10;"
-        );
-        countrySelector.valueProperty().addListener(
-                (observable, oldValue, newValue) -> {
-                    if (newValue == null) {
-                        return;
-                    }
-                    if (firstPlayer) {
-                        matchConfig.firstCountry(newValue.id());
-                    } else {
-                        matchConfig.secondCountry(newValue.id());
-                    }
-                }
-        );
-        ImageView flagView = new ImageView();
-        flagView.setFitWidth(58);
-        flagView.setFitHeight(38);
-        flagView.setPreserveRatio(true);
-        flagView.setSmooth(true);
-        updateFlag(flagView, selectedCountry);
-        countrySelector.valueProperty().addListener((observable, oldValue, newValue) -> updateFlag(flagView, newValue));
-        HBox countryChoice = new HBox(12, flagView, countrySelector);
-        countryChoice.setAlignment(Pos.CENTER);
-        countryChoice.setMaxWidth(Double.MAX_VALUE);
-        VBox.setVgrow(countryChoice, javafx.scene.layout.Priority.ALWAYS);
-        VBox card = new VBox(16, playerLabel, instruction, countryChoice);
-        card.setAlignment(Pos.CENTER);
-        card.setPadding(new Insets(15));
-        card.setPrefWidth(420);
-        card.setMinWidth(260);
-        card.setMaxWidth(520);
-        card.setMinHeight(140);
-        card.setStyle(
-                "-fx-background-color: rgba(255,255,255,0.09);" +
-                        "-fx-background-radius: 20;" +
-                        "-fx-border-color: rgba(255,255,255,0.35);" +
-                        "-fx-border-radius: 20;" +
-                        "-fx-border-width: 1.3;"
-        );
-        return card;
-    }
-
-
-    private void updateFlag(ImageView flagView, CountryOption country) {
-        if (country == null) {
-            flagView.setImage(null);
-            return;
-        }
-        var resource = getClass().getResource("/resources/Images/flags/" + country.flagAsset());
-        flagView.setImage(resource == null ? null : new Image(resource.toExternalForm()));
-    }
     private void startMatch() {
         onStartMatch.accept(matchConfig);
     }
