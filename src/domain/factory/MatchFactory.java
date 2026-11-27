@@ -20,10 +20,25 @@ import java.util.function.Supplier;
 public final class MatchFactory {
     private MatchFactory() { }
 
+    /**
+     * Crea un partido a partir de la solicitud recibida usando el motor físico por defecto.
+     *
+     * @param request configuración del partido solicitada
+     * @return instancia concreta de partido ({@link GoalGame} o {@link TimeGame})
+     * @throws DopoSoccerException si algún parámetro es inválido o falta información requerida
+     */
     public static Game create(MatchRequest request) throws DopoSoccerException {
         return create(request, PhysicsEngine::new);
     }
 
+    /**
+     * Crea un partido inyectando un proveedor personalizado de simulación física.
+     *
+     * @param request configuración del partido solicitada
+     * @param physicsProvider proveedor de la implementación de {@link PhysicsSimulation}
+     * @return instancia concreta de partido lista para iniciar
+     * @throws DopoSoccerException si la configuración es inválida o el proveedor retorna {@code null}
+     */
     public static Game create(
             MatchRequest request,
             Supplier<? extends PhysicsSimulation> physicsProvider) throws DopoSoccerException {
@@ -48,6 +63,19 @@ public final class MatchFactory {
         return new TimeGame(mode, first, second, physics, request.durationSeconds());
     }
 
+    /**
+     * Crea un partido utilizando directamente los tipos internos del dominio.
+     *
+     * @param mode modo de participación (PvP o PvM)
+     * @param matchType modalidad del partido (goles o tiempo)
+     * @param firstCountry identificador del país izquierdo
+     * @param secondCountry identificador del país derecho
+     * @param goalLimit límite de goles si la modalidad es por goles
+     * @param durationSeconds duración en segundos si la modalidad es por tiempo
+     * @param aiProfile perfil de inteligencia artificial de la máquina
+     * @return partido configurado y listo para ejecutarse
+     * @throws DopoSoccerException si algún parámetro requerido es {@code null} o inválido
+     */
     public static Game create(
             PlayerMode mode,
             domain.model.game.MatchType matchType,

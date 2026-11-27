@@ -9,51 +9,63 @@ import domain.model.entity.PowerState;
 import domain.model.entity.PlayerStatusEffect;
 import domain.model.exception.DopoSoccerException;
 import domain.model.game.Game;
-import domain.model.game.GoalGame;
-import domain.model.game.MatchType;
-import domain.model.game.TimeGame;
+import domain.model.game.MatchConfiguration;
 
 import java.nio.file.Path;
 
-/** Coordinates typed match snapshots with the serializable file store. */
+/** Coordina el guardado y restauración de instantáneas tipadas del partido con el almacén serializable. */
 public final class MatchPersistenceService {
     private final MatchSaveStore store;
 
+    /** Crea el servicio usando el archivo de guardado por defecto. */
     public MatchPersistenceService() {
         this(new MatchSaveStore());
     }
 
+    /**
+     * Crea el servicio apuntando a una ruta específica de archivo.
+     *
+     * @param file ruta del archivo de partida guardada
+     */
     public MatchPersistenceService(Path file) {
         this(new MatchSaveStore(file));
     }
 
+    /**
+     * Crea el servicio con un almacén de persistencia inyectado.
+     *
+     * @param store almacén responsable de leer y escribir la partida
+     */
     public MatchPersistenceService(MatchSaveStore store) {
         if (store == null) throw new DopoSoccerException("El almacén de partidas es obligatorio.");
         this.store = store;
     }
 
+    /**
+     * Serializa y guarda el estado completo de un partido en curso o terminado.
+     *
+     * @param game partido activo a persistir
+     * @param aiProfile perfil de máquina asociado al partido
+     * @param rewardsApplied indica si ya se otorgaron los puntos de recompensa
+     */
     public void save(Game game, AIProfile aiProfile, boolean rewardsApplied) {
         if (game == null || aiProfile == null) {
             throw new DopoSoccerException("El partido y el perfil de IA son obligatorios.");
         }
 
-        MatchType matchType = game instanceof TimeGame ? MatchType.TIME : MatchType.GOALS;
-        int goalLimit = game instanceof GoalGame goalGame ? goalGame.goalLimit() : 10;
-        int duration = game instanceof TimeGame timeGame ? timeGame.durationSeconds() : 240;
-        double remaining = game instanceof TimeGame timeGame ? timeGame.remainingExactSeconds() : 0;
-        boolean suddenDeath = game instanceof TimeGame timeGame && timeGame.suddenDeath();
+        MatchConfiguration configuration = game.matchConfiguration();
 
         MatchSaveData data = new MatchSaveData(
                 MatchSaveData.CURRENT_VERSION,
                 game.playerMode(),
-                matchType,
+                configuration.type(),
                 game.firstPlayer().country().id(),
                 game.secondPlayer().country().id(),
                 aiProfile,
-                goalLimit,
-                duration,
-                remaining,
-                suddenDeath,
+                configuration.goalLimit(),
+                configuration.durationSeconds(),
+                configuration.remainingSeconds(),
+                configuration.suddenDeath(),
                 game.kickoffDelaySeconds(),
                 game.winner(),
                 game.isFinished(),
@@ -64,6 +76,11 @@ public final class MatchPersistenceService {
         store.save(data);
     }
 
+    /**
+     * Carga una partida previamente guardada y reconstruye sus entidades y temporizadores.
+     *
+     * @return resultado con el partido reconstruido, perfil de IA y estado de recompensas
+     */
     public LoadedMatch load() {
         MatchSaveData data = store.load();
         Game game = MatchFactory.create(
@@ -85,25 +102,26 @@ public final class MatchPersistenceService {
         ball.setVelocity(ballState.velocityX(), ballState.velocityY());
         if (ballState.powerId() != null) {
             Player owner = ballState.powerOwner() == 1 ? game.firstPlayer() : game.secondPlayer();
-            if (!owner.country().id().equals(ballState.powerId())) {
+            if (!owner.country().power().id().equals(ballState.powerId())) {
                 throw new DopoSoccerException("El tiro guardado no coincide con su propietario.");
             }
-            ball.restorePowerShot(owner.country(), owner, ballState.powerTime(),
+            ball.restorePowerShot(owner.country().power(), owner, ballState.powerTime(),
                     ballState.powerEffectApplied());
         }
-        if (game instanceof TimeGame timeGame) {
-            timeGame.restoreClock(data.remainingSeconds(), data.suddenDeath());
-        }
+        game.restoreMatchConfiguration(new MatchConfiguration(data.matchType(), data.goalLimit(),
+                data.durationSeconds(), data.remainingSeconds(), data.suddenDeath()));
         if (data.finished()) {
             game.restoreLifecycle(data.winner());
         }
         return new LoadedMatch(game, data.aiProfile(), data.rewardsApplied());
     }
 
+    /** @return {@code true} si existe una partida guardada en la ruta configurada */
     public boolean exists() {
         return store.exists();
     }
 
+    /** @return ruta absoluta del archivo gestionado por este servicio */
     public Path filePath() {
         return store.filePath();
     }
@@ -168,5 +186,12 @@ public final class MatchPersistenceService {
                 state.impactLockTimer());
     }
 
+    /**
+     * Resultado de cargar una partida guardada.
+     *
+     * @param game partido reconstruido
+     * @param aiProfile perfil de IA configurado en esa partida
+     * @param rewardsApplied indica si los puntos de recompensa ya habían sido entregados
+     */
     public record LoadedMatch(Game game, AIProfile aiProfile, boolean rewardsApplied) { }
 }

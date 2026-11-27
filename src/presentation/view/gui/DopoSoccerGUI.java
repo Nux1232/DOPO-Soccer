@@ -7,7 +7,10 @@ import javafx.scene.image.Image;
 import javafx.scene.layout.Pane;
 import javafx.stage.FileChooser;
 import java.io.File;
+import java.util.List;
 import javafx.stage.Stage;
+import presentation.model.AIProfileOption;
+import presentation.model.CountryOption;
 import presentation.model.GameSnapshot;
 import presentation.model.GameSnapshot.PlayerSnapshot;
 import presentation.model.PlayerControls;
@@ -26,6 +29,11 @@ public class DopoSoccerGUI extends Application {
     private GamePlayPane activeGamePane;
     private MatchSetup matchConfig;
 
+    /**
+     * Inicializa la ventana principal de JavaFX y muestra el menú inicial.
+     *
+     * @param stage escenario principal de la aplicación
+     */
     @Override
     public void start(Stage stage) {
         primaryStage = stage;
@@ -42,12 +50,21 @@ public class DopoSoccerGUI extends Application {
 
     private void showMainMenu() {
         if (dopoSoccer != null) dopoSoccer.reset();
+        primaryStage.setMinWidth(WINDOW_WIDTH);
+        primaryStage.setMinHeight(WINDOW_HEIGHT);
         navigate(new MainMenuPane(this::showCharacterSelection, this::loadSavedMatch));
     }
 
     private void showCharacterSelection(String mode) {
         matchConfig = new MatchSetup(mode);
-        navigate(new CharacterSelectionPane(matchConfig, this::startMatch, this::showMainMenu, this::showUpgrades));
+        List<CountryOption> countries = dopoSoccer.availableCountries().stream()
+                .map(c -> new CountryOption(c.id(), c.displayName(), c.color(), c.flagAsset()))
+                .toList();
+        List<AIProfileOption> aiProfiles = dopoSoccer.availableAIProfiles().stream()
+                .map(p -> new AIProfileOption(p.id(), p.displayName()))
+                .toList();
+        navigate(new CharacterSelectionPane(matchConfig, countries, aiProfiles,
+                this::startMatch, this::showMainMenu, this::showUpgrades));
     }
 
     private void showUpgrades() {
@@ -57,8 +74,8 @@ public class DopoSoccerGUI extends Application {
                 "Jugador 2 - Speed", "Jugador 2 - Kick", "Jugador 2 - Jump", "Jugador 2 - Survival"));
         choice.setTitle("Mejoras");
         choice.setHeaderText("Mejora estadísticas con tus puntos");
-        domain.model.persistence.PlayerProfile profile1 = dopoSoccer.loadSavedProfile("player1");
-        domain.model.persistence.PlayerProfile profile2 = dopoSoccer.loadSavedProfile("player2");
+        DopoSoccer.PlayerProfileSummary profile1 = dopoSoccer.loadSavedProfile("player1");
+        DopoSoccer.PlayerProfileSummary profile2 = dopoSoccer.loadSavedProfile("player2");
         choice.setContentText("Puntos J1: " + profile1.points() + " | Puntos J2: " + profile2.points()
                 + "\nSelecciona la mejora que quieres comprar:");
         java.util.Optional<String> selected = choice.showAndWait();
@@ -67,7 +84,7 @@ public class DopoSoccerGUI extends Application {
         String slot = option.startsWith("Jugador 1") ? "player1" : "player2";
         String stat = option.substring(option.indexOf(" - ") + 3).toLowerCase();
         try {
-            domain.model.persistence.PlayerProfile profile = dopoSoccer.improveSavedProfile(slot, stat);
+            DopoSoccer.PlayerProfileSummary profile = dopoSoccer.improveSavedProfile(slot, stat);
             javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
                     javafx.scene.control.Alert.AlertType.INFORMATION);
             alert.setTitle("Mejora comprada");
@@ -82,23 +99,17 @@ public class DopoSoccerGUI extends Application {
 
     private void startMatch(MatchSetup config) {
         try {
+            primaryStage.setMinWidth(Math.min(WINDOW_WIDTH, config.resolution().width()));
+            primaryStage.setMinHeight(Math.min(WINDOW_HEIGHT, config.resolution().height()));
             primaryStage.setWidth(config.resolution().width());
             primaryStage.setHeight(config.resolution().height());
             dopoSoccer.startMatch(new DopoSoccer.MatchRequest(
                     DopoSoccer.PlayerModeKind.valueOf(config.playerMode()),
                     DopoSoccer.MatchKind.valueOf(config.type().name()),
-                    config.firstCountry().name(),
-                    config.secondCountry().name(),
+                    config.firstCountry(),
+                    config.secondCountry(),
                     config.goalLimit(), config.durationSeconds(), config.aiProfile()));
-            activeGamePane = new GamePlayPane(
-                    toPresentationSnapshot(dopoSoccer.snapshot()),
-                    (first, second, delta) -> {
-                        dopoSoccer.updateMatch(toDomainActions(first), toDomainActions(second), delta);
-                        return toPresentationSnapshot(dopoSoccer.snapshot());
-                    },
-                    this::showMainMenu,
-                    this::saveMatch);
-            navigate(activeGamePane);
+            openMatchView();
         } catch (Exception exception) {
             showError("No se pudo iniciar el partido", exception.getMessage());
         }
@@ -133,20 +144,25 @@ public class DopoSoccerGUI extends Application {
         if (file == null) return;
         try {
             dopoSoccer.loadMatch(file.toPath());
-            showLoadedMatch();
+            openMatchView();
         } catch (Exception exception) {
             showError("No se pudo cargar la partida", exception.getMessage());
         }
     }
 
-    private void showLoadedMatch() {
+    private void openMatchView() {
         activeGamePane = new GamePlayPane(
                 toPresentationSnapshot(dopoSoccer.snapshot()),
                 (first, second, delta) -> {
                     dopoSoccer.updateMatch(toDomainActions(first), toDomainActions(second), delta);
                     return toPresentationSnapshot(dopoSoccer.snapshot());
                 },
-                this::showMainMenu, this::saveMatch);
+                this::showMainMenu,
+                this::saveMatch,
+                () -> {
+                    dopoSoccer.endMatch();
+                    return toPresentationSnapshot(dopoSoccer.snapshot());
+                });
         navigate(activeGamePane);
     }
 
@@ -155,18 +171,19 @@ public class DopoSoccerGUI extends Application {
     }
 
     private GameSnapshot toPresentationSnapshot(DopoSoccer.MatchSnapshot state) {
-        return new GameSnapshot(state.width(), state.height(), state.groundY(), state.modeDescription(),
-                state.finished(), state.winner(), toPresentationPlayer(state.firstPlayer()),
-                toPresentationPlayer(state.secondPlayer()), state.machineOpponent(), state.ballX(), state.ballY(), state.ballRadius(),
+        return new GameSnapshot(state.width(), state.height(), state.groundY(), state.goalTop(), state.goalDepth(),
+                state.modeDescription(), state.finished(), state.winner(),
+                toPresentationPlayer(state.firstPlayer()), toPresentationPlayer(state.secondPlayer()),
+                state.machineOpponent(), state.ballX(), state.ballY(), state.ballRadius(),
                 state.activePowerShot(), state.powerShotAsset(), state.powerShotColor(),
-                state.powerShotDuration(), state.powerShotElapsed());
+                state.powerShotDuration(), state.powerShotElapsed(), state.powerShotRenderCopies());
     }
 
     private PlayerSnapshot toPresentationPlayer(DopoSoccer.PlayerSnapshot player) {
-        return new PlayerSnapshot(player.countryName(), player.jerseyColor(), player.x(), player.y(),
-                player.goals(), player.health(), player.maxHealth(), player.powerCharge(), player.points(),
-                player.facingDirection(), player.kicking(), player.stunned(),
-                "AURA".equals(player.power()), player.statusEffect());
+        return new PlayerSnapshot(player.countryName(), player.jerseyColor(), player.flagAsset(),
+                player.x(), player.y(), player.goals(), player.health(), player.maxHealth(),
+                player.powerCharge(), player.points(), player.facingDirection(), player.kicking(),
+                player.stunned(), "AURA".equals(player.power()), player.statusEffect());
     }
 
     private void navigate(Pane pane) {
@@ -192,10 +209,16 @@ public class DopoSoccerGUI extends Application {
         alert.showAndWait();
     }
 
+    /** Detiene la vista activa del partido al cerrar la aplicación. */
     @Override
     public void stop() {
         if (activeGamePane != null) activeGamePane.stop();
     }
 
+    /**
+     * Punto de entrada principal de la interfaz gráfica.
+     *
+     * @param args argumentos de línea de comandos
+     */
     public static void main(String[] args) { launch(args); }
 }

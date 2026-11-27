@@ -3,6 +3,7 @@ package tests;
 import domain.factory.CountryFactory;
 import domain.model.entity.Ball;
 import domain.model.entity.Country;
+import domain.model.entity.CountryCatalog;
 import domain.model.entity.LPlayer;
 import domain.model.entity.Player;
 import domain.model.entity.PlayerStatusEffect;
@@ -23,21 +24,34 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PowerShotTest {
 
     @Test
+    void catalogOwnsCountryChoicesAndCountriesCanReuseIndependentPowers() {
+        Country southKorea = CountryCatalog.get("KR");
+        Country sameCountry = CountryCatalog.get("south-korea");
+        Country customCountry = new Country(
+                "custom-country", "País de prueba", "#ffffff", "custom.png", southKorea.power());
+
+        assertSame(southKorea, sameCountry);
+        assertEquals(4, CountryCatalog.all().size());
+        assertSame(southKorea.power(), customCountry.power());
+        assertEquals("custom-country", customCountry.id());
+    }
+
+    @Test
     void countriesOwnPowerConfigurationAndExposeDistinctDamage() {
         Country southKorea = CountryFactory.create("KR");
         Country cameroon = CountryFactory.create("CM");
         Country nigeria = CountryFactory.create("NG");
         Country usa = CountryFactory.create("USA");
 
-        assertEquals(60, southKorea.damage());
-        assertEquals(84, cameroon.damage());
-        assertEquals(60, nigeria.damage());
-        assertEquals(48, usa.damage());
-        assertEquals("Ko_power.gif", southKorea.visualAsset());
-        assertEquals("Cm_power.gif", cameroon.visualAsset());
-        assertEquals("Ng_power.gif", nigeria.visualAsset());
-        assertEquals("usa-illusion.gif", usa.visualAsset());
-        assertTrue(usa.renderCopies());
+        assertEquals(60, southKorea.power().damage());
+        assertEquals(84, cameroon.power().damage());
+        assertEquals(60, nigeria.power().damage());
+        assertEquals(48, usa.power().damage());
+        assertEquals("Ko_power.gif", southKorea.power().visualAsset());
+        assertEquals("Cm_power.gif", cameroon.power().visualAsset());
+        assertEquals("Ng_power.gif", nigeria.power().visualAsset());
+        assertEquals("usa-illusion.gif", usa.power().visualAsset());
+        assertTrue(usa.power().renderCopies());
     }
 
     @Test
@@ -52,10 +66,10 @@ class PowerShotTest {
         new PhysicsEngine().kick(kicker, ball, 1);
 
         assertEquals(PowerState.NONE, kicker.power());
-        assertSame(country, ball.activePowerShot());
+        assertSame(country.power(), ball.activePowerShot());
         assertSame(kicker, ball.powerShotOwner());
-        assertEquals(country.horizontalSpeed(), ball.velocityX());
-        assertEquals(country.verticalSpeed(), ball.velocityY());
+        assertEquals(country.power().horizontalSpeed(), ball.velocityX());
+        assertEquals(country.power().verticalSpeed(), ball.velocityY());
     }
 
     @Test
@@ -97,7 +111,7 @@ class PowerShotTest {
     void activePowerExpiresAndRemovesItsVisualState() {
         Ball ball = new Ball(100, 100);
         Player owner = new LPlayer(CountryFactory.create("USA"), 100);
-        Power power = owner.country();
+        Power power = owner.country().power();
         ball.startPowerShot(power, owner);
 
         ball.tickPowerShot(power.durationSeconds() - 0.01);

@@ -1,13 +1,18 @@
 package domain.model.entity;
 
 /**
- * Efectos temporales aplicados a un jugador por los tiros especiales.
+ * Efectos temporales aplicados a un jugador al ser impactado por un tiro especial.
  */
 public enum PlayerStatusEffect {
+    /** Sin alteración de estado. */
     NONE(1.0, true, true, true),
+    /** Empujado hacia su propio arco por Aura Azul. */
     PUSHED(0.0, false, false, false),
-    ELECTRIFIED(0.25, true, false, false),
+    /** Electrocutado por Rayo: no puede saltar y se mueve al 50 % de su velocidad. */
+    ELECTRIFIED(0.50, true, false, false),
+    /** Inconsciente por Tornado: lanzado al aire sin poder moverse, saltar ni patear. */
     UNCONSCIOUS(0.0, false, false, false),
+    /** Confundido por Ilusión. */
     CONFUSED(0.65, true, true, false);
 
     private final double movementMultiplier;
@@ -26,18 +31,38 @@ public enum PlayerStatusEffect {
         this.canKick = canKick;
     }
 
+    /**
+     * Factor multiplicador aplicado a la velocidad de desplazamiento horizontal.
+     *
+     * @return multiplicador entre {@code 0.0} y {@code 1.0}
+     */
     public double movementMultiplier() {
         return movementMultiplier;
     }
 
+    /**
+     * Indica si el jugador puede desplazarse horizontalmente bajo este efecto.
+     *
+     * @return {@code true} si el movimiento está permitido
+     */
     public boolean canMove() {
         return canMove;
     }
 
+    /**
+     * Indica si el jugador puede saltar bajo este efecto.
+     *
+     * @return {@code true} si el salto está permitido
+     */
     public boolean canJump() {
         return canJump;
     }
 
+    /**
+     * Indica si el jugador puede patear bajo este efecto.
+     *
+     * @return {@code true} si la patada está permitida
+     */
     public boolean canKick() {
         return canKick;
     }

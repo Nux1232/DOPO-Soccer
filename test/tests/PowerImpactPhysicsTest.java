@@ -25,7 +25,7 @@ class PowerImpactPhysicsTest {
         Player target = new RPlayer(CountryFactory.create("CAMEROON"), 700);
 
         Country southKorea = CountryFactory.create("KR");
-        southKorea.applyImpact(owner, target);
+        southKorea.power().applyImpact(owner, target);
         assertEquals(820, target.velocityX());
         assertEquals(-440, target.velocityY());
         assertEquals(0.55, target.impactLockTimer());
@@ -33,7 +33,7 @@ class PowerImpactPhysicsTest {
 
         target = new RPlayer(CountryFactory.create("CAMEROON"), 700);
         Country cameroon = CountryFactory.create("CM");
-        cameroon.applyImpact(owner, target);
+        cameroon.power().applyImpact(owner, target);
         assertEquals(640, target.velocityX());
         assertEquals(-300, target.velocityY());
         assertEquals(0.4, target.impactLockTimer());
@@ -43,14 +43,14 @@ class PowerImpactPhysicsTest {
 
         target = new RPlayer(CountryFactory.create("CAMEROON"), 700);
         Country nigeria = CountryFactory.create("NG");
-        nigeria.applyImpact(owner, target);
+        nigeria.power().applyImpact(owner, target);
         assertEquals(420, target.velocityX());
         assertEquals(-900, target.velocityY());
         assertEquals(PlayerStatusEffect.UNCONSCIOUS, target.statusEffect());
 
         target = new RPlayer(CountryFactory.create("CAMEROON"), 700);
         Country usa = CountryFactory.create("USA");
-        usa.applyImpact(owner, target);
+        usa.power().applyImpact(owner, target);
         assertEquals(560, target.velocityX());
         assertEquals(-500, target.velocityY());
         assertEquals(PlayerStatusEffect.CONFUSED, target.statusEffect());
@@ -68,7 +68,7 @@ class PowerImpactPhysicsTest {
 
         Player target = game.secondPlayer();
         target.setPosition(700, 300);
-        CountryFactory.create("KR").applyImpact(game.firstPlayer(), target);
+        CountryFactory.create("KR").power().applyImpact(game.firstPlayer(), target);
 
         physics.update(
                 game,

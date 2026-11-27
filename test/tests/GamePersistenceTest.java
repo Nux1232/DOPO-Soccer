@@ -44,7 +44,7 @@ class GamePersistenceTest {
         game.firstPlayer().applyKnockback(240, -300, 0.3);
         game.ball().setPosition(321, 240);
         game.ball().setVelocity(120, -30);
-        game.ball().startPowerShot(game.firstPlayer().country(), game.firstPlayer());
+        game.ball().startPowerShot(game.firstPlayer().country().power(), game.firstPlayer());
         game.ball().markPowerEffectApplied();
 
         persistence.save(game, AIProfile.OFFENSIVE, false);
@@ -64,7 +64,7 @@ class GamePersistenceTest {
         assertEquals(240, restored.ball().y());
         assertEquals(120, restored.ball().velocityX());
         assertEquals(-30, restored.ball().velocityY());
-        assertSame(restored.firstPlayer().country(), restored.ball().activePowerShot());
+        assertSame(restored.firstPlayer().country().power(), restored.ball().activePowerShot());
         assertSame(restored.firstPlayer(), restored.ball().powerShotOwner());
         assertTrue(restored.ball().powerEffectApplied());
         assertEquals(AIProfile.OFFENSIVE, saved.aiProfile());

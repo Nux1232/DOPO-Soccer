@@ -12,19 +12,30 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-/** Reads and writes versioned serializable match snapshots. */
+/** Lee y escribe instantáneas serializables y versionadas de partidos en disco. */
 public final class MatchSaveStore {
     private final Path file;
 
+    /** Crea el almacén usando la ruta predeterminada en el directorio del usuario. */
     public MatchSaveStore() {
         this(Path.of(System.getProperty("user.home"), ".dopo-soccer", "saved-match.ser"));
     }
 
+    /**
+     * Crea el almacén apuntando al archivo indicado.
+     *
+     * @param file ruta del archivo de guardado
+     */
     public MatchSaveStore(Path file) {
         if (file == null) throw new DopoSoccerException("La ruta de guardado es obligatoria.");
         this.file = file.toAbsolutePath();
     }
 
+    /**
+     * Escribe los datos del partido de forma atómica usando un archivo temporal previo.
+     *
+     * @param data instantánea serializable del partido
+     */
     public void save(MatchSaveData data) {
         if (data == null) throw new DopoSoccerException("Los datos del partido son obligatorios.");
         Path parent = file.getParent();
@@ -54,6 +65,11 @@ public final class MatchSaveStore {
         }
     }
 
+    /**
+     * Lee y valida una partida serializada aplicando un filtro estricto de clases permitidas.
+     *
+     * @return instantánea validada del partido guardado
+     */
     public MatchSaveData load() {
         if (!Files.isRegularFile(file)) throw new DopoSoccerException("No hay una partida guardada.");
         try (ObjectInputStream input = new ObjectInputStream(Files.newInputStream(file))) {
@@ -86,10 +102,12 @@ public final class MatchSaveStore {
         return ObjectInputFilter.Status.REJECTED;
     }
 
+    /** @return {@code true} si el archivo de partida existe */
     public boolean exists() {
         return Files.isRegularFile(file);
     }
 
+    /** @return ruta absoluta del archivo de guardado */
     public Path filePath() {
         return file;
     }

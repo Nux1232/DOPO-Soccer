@@ -10,6 +10,14 @@ public final class PlayerInputHandler {
     private static final double PLAYER_MOVE_SPEED = 280.0;
     private static final double PLAYER_JUMP_SPEED = -560.0;
 
+    /**
+     * Aplica las entradas del jugador sobre su velocidad, orientación, salto y activación de aura,
+     * respetando aturdimiento, bloqueos de saque, bloqueo de impacto y efectos de estado.
+     *
+     * @param player jugador sobre el cual aplicar las acciones
+     * @param input acciones solicitadas en el cuadro actual
+     * @param kickoffLocked {@code true} si el saque aún está bloqueado
+     */
     public void apply(Player player, PlayerInput input, boolean kickoffLocked) {
         if (kickoffLocked || player.stunned()) { player.setVelocity(0, player.velocityY()); return; }
         if (player.impactLocked()) return;

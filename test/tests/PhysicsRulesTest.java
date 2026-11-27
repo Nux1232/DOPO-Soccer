@@ -29,7 +29,7 @@ class PhysicsRulesTest {
         Player opponent = new RPlayer(CountryFactory.create("CAMEROON"), 120);
         opponent.setPosition(120, 100);
         Ball ball = new Ball(120, 100);
-        ball.startPowerShot(owner.country(), owner);
+        ball.startPowerShot(owner.country().power(), owner);
         PowerShotImpactHandler handler = new PowerShotImpactHandler();
 
         handler.apply(ball, owner, opponent);

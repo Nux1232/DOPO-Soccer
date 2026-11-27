@@ -60,7 +60,11 @@ public abstract class Player {
         return stats;
     }
 
-    /** Restores progression and synchronizes health with the restored survival level. */
+    /**
+     * Restaura la progresión de estadísticas y sincroniza la vida con el nivel de supervivencia cargado.
+     *
+     * @param profile perfil persistido del jugador
+     */
     public void restoreProfile(domain.model.persistence.PlayerProfile profile) {
         stats.restore(profile);
         health=maxHealth();
@@ -226,8 +230,12 @@ public abstract class Player {
     }
 
     /**
-     * Applies a physical hit reaction that temporarily prevents input from
-     * overwriting the resulting velocity in the next physics frames.
+     * Aplica una reacción física de impacto que impide temporalmente que el movimiento
+     * controlado sobrescriba la velocidad resultante durante los siguientes cuadros.
+     *
+     * @param velocityX velocidad horizontal del impulso
+     * @param velocityY velocidad vertical del impulso
+     * @param seconds duración del bloqueo por impacto en segundos
      */
     public void applyKnockback(double velocityX, double velocityY, double seconds) {
         if (seconds <= 0) {
@@ -356,7 +364,7 @@ public abstract class Player {
             statusEffectTimer, 0.0);
     }
 
-    /** Restores the match state, including any remaining impact knockback. */
+    /** Restaura el estado completo del partido, incluyendo el bloqueo restante por impacto. */
     public void restoreMatchState(int goals, double health, double powerCharge, PowerState power,
             double x, double y, double velocityX, double velocityY, boolean grounded,
             double kickCooldown, double kickAnimationTimer, double stunTimer, int facingDirection,

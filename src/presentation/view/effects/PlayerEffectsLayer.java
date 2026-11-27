@@ -11,6 +11,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 
+/**
+ * Capa superpuesta de JavaFX encargada de posicionar y mostrar animaciones GIF
+ * de efectos visuales (aura, aturdimiento y estados alterados) sobre ambos jugadores.
+ */
 public final class PlayerEffectsLayer extends Pane {
     private static final List<EffectStyle> EFFECT_STYLES = List.of(
             new EffectStyle("/resources/effects/chakra-energy-charge.gif", 2.4, 1.9,
@@ -35,6 +39,9 @@ public final class PlayerEffectsLayer extends Pane {
     private final PlayerEffects secondEffects;
     private final Set<String> missingOptionalResources = new HashSet<>();
 
+    /**
+     * Crea la capa de efectos cargando los recursos animados configurados para ambos jugadores.
+     */
     public PlayerEffectsLayer() {
         firstEffects = createPlayerEffects();
         secondEffects = createPlayerEffects();
@@ -66,6 +73,15 @@ public final class PlayerEffectsLayer extends Pane {
         return view;
     }
 
+    /**
+     * Actualiza la posición, escala y visibilidad de los efectos de ambos jugadores.
+     *
+     * @param first instantánea del primer jugador
+     * @param second instantánea del segundo jugador
+     * @param scale factor de escala de la cancha en pantalla
+     * @param offsetX desplazamiento horizontal de centrado
+     * @param offsetY desplazamiento vertical de centrado
+     */
     public void update(PlayerSnapshot first, PlayerSnapshot second, double scale, double offsetX, double offsetY) {
         updatePlayerEffects(first, firstEffects, scale, offsetX, offsetY);
         updatePlayerEffects(second, secondEffects, scale, offsetX, offsetY);

@@ -4,7 +4,12 @@ Juego 2D local para dos jugadores, implementado con JavaFX.
 
 ## Ejecutar
 
-Requiere JDK 21 o superior y Maven:
+Requiere JDK 21 o superior con `JAVA_HOME` configurado. Maven se descarga automáticamente mediante el wrapper incluido:
+
+```powershell
+.\mvnw.cmd javafx:run
+.\mvnw.cmd test
+```
 
 La simulación física usa [Dyn4j](https://dyn4j.org/), que Maven descarga automáticamente al abrir o compilar el proyecto. El mundo trabaja en metros con pasos fijos de 1/60 s: los jugadores usan cuerpos tipo cápsula y se mueven con fuerzas e impulsos; el balón rebota mediante materiales físicos, y los goles se detectan con sensores de contacto.
 
@@ -22,10 +27,6 @@ El dominio del partido está en `src/domain`; la aplicación JavaFX y el renderi
 
 Las partidas se guardan como snapshots versionados y serializables (`.ser`), no como objetos del motor Dyn4j. El motor físico se reconstruye al cargar. Desde la pantalla de juego puedes guardar y elegir la ubicación del archivo; los perfiles permanentes de los jugadores se guardan por separado en `~/.dopo-soccer/profiles.properties`.
 
-## Extender poderes
+## Extender países y poderes
 
-Cada país configura e implementa su poder en su propia clase (`src/domain/model/entity`). El contrato común está en `Power`; el daño escala con `POWER_DAMAGE_MULTIPLIER` en `Country`, y cada `applyImpact` define la reacción física. Los estados de control se ajustan en `PlayerStatusEffect` y `PlayerInputHandler`.
-
-## Balance de poderes
-
-Cada país configura su poder en su constructor (`src/domain/model/entity`). El daño escala con `POWER_DAMAGE_MULTIPLIER` en `Country`; los demás valores indican duración en segundos, daño base, velocidades del balón en píxeles por segundo y restitución. La reacción al impacto se define en `applyImpact`, que usa `Player.applyKnockback(velocidadX, velocidadY, duración)` para que Dyn4j conserve el impulso aunque el rival intente moverse. Los efectos de control se ajustan en `PlayerStatusEffect` y `PlayerInputHandler`.
+`CountryCatalog` es la fuente única de países disponibles. Cada `Country` conserva su identidad visual y contiene un `Power`; el país y el poder son objetos independientes, por lo que varios países pueden reutilizar un poder. Para añadir un país, agrega su configuración al catálogo. Para añadir un comportamiento de poder nuevo, implementa `Power`; `ImpactPower` cubre proyectiles con daño, estado, rebote y retroceso configurables. Los efectos de control se ajustan en `PlayerStatusEffect`.

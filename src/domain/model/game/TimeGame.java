@@ -14,6 +14,16 @@ public final class TimeGame extends Game {
     private final MatchClock clock;
     private boolean suddenDeath;
 
+    /**
+     * Crea un partido por tiempo reglamentario con soporte para muerte súbita.
+     *
+     * @param playerMode modalidad de participación
+     * @param firstCountry país del jugador izquierdo
+     * @param secondCountry país del jugador derecho
+     * @param physicsSimulation motor físico inyectado
+     * @param durationSeconds duración reglamentaria en segundos
+     * @throws DopoSoccerException si la duración es menor o igual que cero
+     */
     public TimeGame(
             PlayerMode playerMode,
             Country firstCountry,
@@ -33,11 +43,16 @@ public final class TimeGame extends Game {
         this.clock = new MatchClock(durationSeconds);
     }
 
+    /** @return duración total configurada en segundos */
     public int durationSeconds() {
         return clock.durationSeconds();
     }
 
-    /** True when regulation ended tied and the match is in golden-goal overtime. */
+    /**
+     * Indica si el tiempo reglamentario concluyó en empate y el partido está en gol de oro.
+     *
+     * @return {@code true} si el partido se encuentra en muerte súbita
+     */
     public boolean suddenDeath() {
         return suddenDeath;
     }
@@ -52,17 +67,42 @@ public final class TimeGame extends Game {
         }
     }
 
+    /**
+     * Restaura el reloj interno y el estado de muerte súbita al cargar una partida.
+     *
+     * @param remaining segundos restantes en el reloj
+     * @param suddenDeath {@code true} si la partida estaba en muerte súbita
+     */
     public void restoreClock(double remaining, boolean suddenDeath) {
         clock.restoreRemaining(remaining);
         this.suddenDeath = suddenDeath;
     }
 
+    /** @return tiempo restante exacto en segundos */
     public double remainingExactSeconds() { return clock.remainingExactSeconds(); }
 
+    @Override
+    public MatchConfiguration matchConfiguration() {
+        return new MatchConfiguration(MatchType.TIME, 10, durationSeconds(),
+                remainingExactSeconds(), suddenDeath);
+    }
+
+    @Override
+    public void restoreMatchConfiguration(MatchConfiguration configuration) {
+        if (configuration == null || configuration.type() != MatchType.TIME
+                || configuration.durationSeconds() != durationSeconds()) {
+            throw new DopoSoccerException("La configuración guardada no corresponde a este partido.");
+        }
+        clock.restoreRemaining(configuration.remainingSeconds());
+        suddenDeath = configuration.suddenDeath();
+    }
+
+    /** @return segundos restantes redondeados hacia arriba para visualización */
     public int remainingSeconds() {
         return clock.remainingSeconds();
     }
 
+    /** @return tiempo restante formateado como {@code MM:SS} */
     public String formattedTime() {
         return clock.formatted();
     }

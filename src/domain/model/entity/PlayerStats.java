@@ -35,32 +35,48 @@ public final class PlayerStats {
     /** Costo en puntos de la próxima mejora (empieza en 500 y se duplica). */
     private int nextUpgradeCost = INITIAL_UPGRADE_COST;
 
-    /** Restores persistent progression, validating values through PlayerProfile. */
+    /**
+     * Restaura la progresión persistente validando los rangos a través de {@link PlayerProfile}.
+     *
+     * @param profile perfil persistente a restaurar
+     * @throws DopoSoccerException si el perfil es nulo
+     */
     public void restore(PlayerProfile profile) {
         if (profile == null) throw new DopoSoccerException("Perfil requerido");
         speed=profile.speed(); kick=profile.kick(); jump=profile.jump(); survival=profile.survival();
         points=profile.points(); nextUpgradeCost=profile.nextUpgradeCost();
     }
+
+    /**
+     * Construye una instantánea inmutable de las estadísticas actuales.
+     *
+     * @return perfil serializable con la progresión del jugador
+     */
     public PlayerProfile profile() {
         return new PlayerProfile(speed,kick,jump,survival,points,nextUpgradeCost);
     }
 
+    /** @return nivel actual de velocidad (1 a 10) */
     public int speed() {
         return speed;
     }
 
+    /** @return nivel actual de patada (1 a 10) */
     public int kick() {
         return kick;
     }
 
+    /** @return nivel actual de salto (1 a 10) */
     public int jump() {
         return jump;
     }
 
+    /** @return nivel actual de supervivencia (1 a 10) */
     public int survival() {
         return survival;
     }
 
+    /** @return puntos disponibles para comprar mejoras */
     public int points() {
         return points;
     }
@@ -78,6 +94,7 @@ public final class PlayerStats {
      * Suma puntos al jugador (por ejemplo, 100 al ganar o 25 al perder).
      *
      * @param amount puntos a sumar (no negativo)
+     * @throws DopoSoccerException si {@code amount} es negativo
      */
     public void addPoints(int amount) throws DopoSoccerException {
         if (amount < 0) {
@@ -86,18 +103,22 @@ public final class PlayerStats {
         points += amount;
     }
 
+    /** Mejora en 1 punto la estadística de velocidad consumiendo puntos acumulados. */
     public void improveSpeed() {
         speed = improve(speed);
     }
 
+    /** Mejora en 1 punto la estadística de patada consumiendo puntos acumulados. */
     public void improveKick() {
         kick = improve(kick);
     }
 
+    /** Mejora en 1 punto la estadística de salto consumiendo puntos acumulados. */
     public void improveJump() {
         jump = improve(jump);
     }
 
+    /** Mejora en 1 punto la estadística de supervivencia consumiendo puntos acumulados. */
     public void improveSurvival() {
         survival = improve(survival);
     }

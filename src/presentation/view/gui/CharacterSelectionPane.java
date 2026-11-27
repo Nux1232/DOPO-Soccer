@@ -1,4 +1,6 @@
 package presentation.view.gui;
+import presentation.model.AIProfileOption;
+import presentation.model.CountryOption;
 import presentation.model.MatchSetup;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -14,6 +16,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.control.ScrollPane;
 import javafx.util.StringConverter;
+import java.util.List;
 import java.util.function.Consumer;
 /**
  * Pantalla de selección de personajes.
@@ -27,17 +30,31 @@ public class CharacterSelectionPane extends StackPane {
             "/resources/Images/background_selection.png";
 
     private final MatchSetup matchConfig;
+    private final List<CountryOption> countries;
+    private final List<AIProfileOption> aiProfiles;
     private final Consumer<MatchSetup> onStartMatch;
     private final Runnable onBack;
     private final Runnable onImprove;
 
-    public CharacterSelectionPane(MatchSetup matchConfig, Consumer<MatchSetup> onStartMatch, Runnable onBack) {
-        this(matchConfig, onStartMatch, onBack, () -> {});
-    }
-
-    public CharacterSelectionPane(MatchSetup matchConfig, Consumer<MatchSetup> onStartMatch,
-                                  Runnable onBack, Runnable onImprove) {
+    /**
+     * Crea la pantalla de selección de países, modalidad, resolución y mejoras previas.
+     *
+     * @param matchConfig configuración mutable del partido que se está preparando
+     * @param countries países disponibles para seleccionar
+     * @param aiProfiles perfiles de inteligencia artificial disponibles
+     * @param onStartMatch acción invocada al iniciar el partido
+     * @param onBack acción invocada para regresar al menú principal
+     * @param onImprove acción invocada para abrir el diálogo de mejoras de estadísticas
+     */
+    public CharacterSelectionPane(MatchSetup matchConfig,
+                                  List<CountryOption> countries,
+                                  List<AIProfileOption> aiProfiles,
+                                  Consumer<MatchSetup> onStartMatch,
+                                  Runnable onBack,
+                                  Runnable onImprove) {
         this.matchConfig = matchConfig;
+        this.countries = List.copyOf(countries);
+        this.aiProfiles = List.copyOf(aiProfiles);
         this.onStartMatch = onStartMatch;
         this.onBack = onBack;
         this.onImprove = onImprove;
@@ -283,15 +300,20 @@ public class CharacterSelectionPane extends StackPane {
         VBox aiProfileBox = new VBox(6);
         Label aiProfileLabel = new Label("PERFIL DE LA MÁQUINA");
         aiProfileLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
-        ComboBox<String> aiProfileSelector = new ComboBox<>();
-        aiProfileSelector.getItems().addAll("TORPE", "OFENSIVA", "DEFENSIVA", "EXPERTA");
-        aiProfileSelector.setValue("EXPERTA");
+        ComboBox<AIProfileOption> aiProfileSelector = new ComboBox<>();
+        aiProfileSelector.getItems().setAll(aiProfiles);
+        AIProfileOption selectedAiProfile = aiProfiles.stream()
+                .filter(profile -> profile.id().equalsIgnoreCase(matchConfig.aiProfile()))
+                .findFirst()
+                .orElse(aiProfiles.isEmpty() ? null : aiProfiles.get(aiProfiles.size() - 1));
+        aiProfileSelector.setValue(selectedAiProfile);
+        if (selectedAiProfile != null) {
+            matchConfig.aiProfile(selectedAiProfile.id());
+        }
         aiProfileSelector.setPrefWidth(220);
         aiProfileSelector.valueProperty().addListener((obs, oldValue, newValue) -> {
             if (newValue != null) {
-                matchConfig.aiProfile(newValue.equals("TORPE") ? "CLUMSY"
-                        : newValue.equals("OFENSIVA") ? "OFFENSIVE"
-                        : newValue.equals("DEFENSIVA") ? "DEFENSIVE" : "EXPERT");
+                matchConfig.aiProfile(newValue.id());
             }
         });
         aiProfileBox.getChildren().addAll(aiProfileLabel, aiProfileSelector);
@@ -457,7 +479,7 @@ public class CharacterSelectionPane extends StackPane {
 
     }
 
-    private VBox createPlayerCard(String heading, MatchSetup.Country selectedCountry, boolean firstPlayer) {
+    private VBox createPlayerCard(String heading, String selectedCountryId, boolean firstPlayer) {
         Label playerLabel = new Label(heading);
         playerLabel.setStyle(
                 "-fx-font-size: 19px;" +
@@ -469,9 +491,20 @@ public class CharacterSelectionPane extends StackPane {
                 "-fx-font-size: 12px;" +
                         "-fx-text-fill: #c8d9eb;"
         );
-        ComboBox<MatchSetup.Country> countrySelector = new ComboBox<>();
-        countrySelector.getItems().setAll(MatchSetup.Country.values());
+        ComboBox<CountryOption> countrySelector = new ComboBox<>();
+        countrySelector.getItems().setAll(countries);
+        CountryOption selectedCountry = countries.stream()
+                .filter(country -> country.id().equalsIgnoreCase(selectedCountryId))
+                .findFirst()
+                .orElse(countries.isEmpty() ? null : countries.get(0));
         countrySelector.setValue(selectedCountry);
+        if (selectedCountry != null) {
+            if (firstPlayer) {
+                matchConfig.firstCountry(selectedCountry.id());
+            } else {
+                matchConfig.secondCountry(selectedCountry.id());
+            }
+        }
         countrySelector.setPrefWidth(285);
         countrySelector.setPrefHeight(42);
         countrySelector.setMaxWidth(Double.MAX_VALUE);
@@ -485,9 +518,9 @@ public class CharacterSelectionPane extends StackPane {
                         return;
                     }
                     if (firstPlayer) {
-                        matchConfig.firstCountry(newValue);
+                        matchConfig.firstCountry(newValue.id());
                     } else {
-                        matchConfig.secondCountry(newValue);
+                        matchConfig.secondCountry(newValue.id());
                     }
                 }
         );
@@ -520,18 +553,12 @@ public class CharacterSelectionPane extends StackPane {
     }
 
 
-    private void updateFlag(ImageView flagView, MatchSetup.Country country) {
+    private void updateFlag(ImageView flagView, CountryOption country) {
         if (country == null) {
             flagView.setImage(null);
             return;
         }
-        String file = switch (country) {
-            case SOUTH_KOREA -> "kr.png";
-            case CAMEROON -> "cm.png";
-            case NIGERIA -> "ng.png";
-            case USA -> "us.png";
-        };
-        var resource = getClass().getResource("/resources/Images/flags/" + file);
+        var resource = getClass().getResource("/resources/Images/flags/" + country.flagAsset());
         flagView.setImage(resource == null ? null : new Image(resource.toExternalForm()));
     }
     private void startMatch() {
