@@ -1,3 +1,11 @@
+<p align="center">
+  <b><a href="README.md">📖 README</a></b> &nbsp;•&nbsp; 
+  <b><a href="docs/PRUEBAS_ACEPTACION.md">🧪 Pruebas de Aceptación</a></b> &nbsp;•&nbsp; 
+  <b><a href="docs/Retrospectiva.md">📝 Retrospectiva</a></b>
+</p>
+<hr>
+
+
 # Head Soccer
 
 Juego 2D local para dos jugadores, implementado con JavaFX.
